@@ -1,0 +1,41 @@
+[package]
+name = "judge"
+version = "0.1.0"
+edition = "2021"
+description = "ANA Online Judge - Judge Worker"
+authors = ["ANA Team"]
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Redis client
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# S3/MinIO client
+aws-sdk-s3 = "1"
+aws-config = { version = "1", features = ["behavior-version-latest"] }
+
+# Environment variables
+dotenvy = "0.15"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Process execution
+nix = { version = "0.29", features = ["process", "signal", "resource"] }
+
+# Temporary files
+tempfile = "3"
+
+[dev-dependencies]
+tokio-test = "0.4"
