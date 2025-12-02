@@ -5,19 +5,10 @@ import { generateImagePath, uploadImage } from "@/lib/storage";
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-interface UploadResult {
-	success: boolean;
-	url?: string;
-	error?: string;
-}
-
 /**
  * Upload an image file for a problem
  */
-export async function uploadProblemImage(
-	formData: FormData,
-	problemId?: number
-): Promise<UploadResult> {
+export async function uploadProblemImage(formData: FormData, problemId?: number) {
 	try {
 		const file = formData.get("file") as File | null;
 
@@ -56,3 +47,5 @@ export async function uploadProblemImage(
 		return { success: false, error: "이미지 업로드에 실패했습니다." };
 	}
 }
+
+export type UploadProblemImageReturn = Awaited<ReturnType<typeof uploadProblemImage>>;

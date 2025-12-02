@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { submissionResults, submissions } from "@/db/schema";
+import { submissionResults, submissions, type Verdict } from "@/db/schema";
 import { getRedisClient } from "@/lib/redis";
 
 const RESULT_KEY_PREFIX = "judge:result:";
@@ -58,16 +58,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 				await db
 					.update(submissions)
 					.set({
-						verdict: result.verdict as
-							| "pending"
-							| "judging"
-							| "accepted"
-							| "wrong_answer"
-							| "time_limit_exceeded"
-							| "memory_limit_exceeded"
-							| "runtime_error"
-							| "compile_error"
-							| "system_error",
+						verdict: result.verdict as Verdict,
 						executionTime: result.execution_time,
 						memoryUsed: result.memory_used,
 						errorMessage: result.error_message ?? null,
@@ -85,16 +76,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 						result.testcase_results.map((tc) => ({
 							submissionId,
 							testcaseId: tc.testcase_id,
-							verdict: tc.verdict as
-								| "pending"
-								| "judging"
-								| "accepted"
-								| "wrong_answer"
-								| "time_limit_exceeded"
-								| "memory_limit_exceeded"
-								| "runtime_error"
-								| "compile_error"
-								| "system_error",
+							verdict: tc.verdict as Verdict,
 							executionTime: tc.execution_time,
 							memoryUsed: tc.memory_used,
 						}))

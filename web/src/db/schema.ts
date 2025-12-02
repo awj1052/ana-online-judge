@@ -12,6 +12,7 @@ export const verdictEnum = pgEnum("verdict", [
 	"runtime_error",
 	"compile_error",
 	"system_error",
+	"skipped",
 ]);
 export const languageEnum = pgEnum("language", ["c", "cpp", "python", "java"]);
 
@@ -22,7 +23,7 @@ export const users = pgTable("users", {
 	password: text("password").notNull(), // bcrypt hashed
 	name: text("name").notNull(),
 	role: userRoleEnum("role").default("user").notNull(),
-	rating: integer("rating").default(1500),
+	rating: integer("rating").default(0),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -33,7 +34,7 @@ export const problems = pgTable("problems", {
 	title: text("title").notNull(),
 	content: text("content").notNull(), // Markdown content
 	timeLimit: integer("time_limit").notNull().default(1000), // ms
-	memoryLimit: integer("memory_limit").notNull().default(256), // MB
+	memoryLimit: integer("memory_limit").notNull().default(512), // MB
 	isPublic: boolean("is_public").default(false).notNull(),
 	authorId: integer("author_id").references(() => users.id),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -99,3 +100,7 @@ export type Submission = typeof submissions.$inferSelect;
 export type NewSubmission = typeof submissions.$inferInsert;
 export type SubmissionResult = typeof submissionResults.$inferSelect;
 export type NewSubmissionResult = typeof submissionResults.$inferInsert;
+
+export type UserRole = (typeof userRoleEnum.enumValues)[number];
+export type Verdict = (typeof verdictEnum.enumValues)[number];
+export type Language = (typeof languageEnum.enumValues)[number];

@@ -197,3 +197,16 @@ export async function updateUserRole(userId: number, role: "user" | "admin") {
 
 	return updatedUser;
 }
+
+export type GetAdminProblemsReturn = Awaited<ReturnType<typeof getAdminProblems>>;
+export type AdminProblemListItem = GetAdminProblemsReturn["problems"][number];
+export type CreateProblemReturn = Awaited<ReturnType<typeof createProblem>>;
+export type UpdateProblemReturn = Awaited<ReturnType<typeof updateProblem>>;
+export type DeleteProblemReturn = Awaited<ReturnType<typeof deleteProblem>>;
+export type GetProblemForEditReturn = Awaited<ReturnType<typeof getProblemForEdit>>;
+export type GetTestcasesReturn = Awaited<ReturnType<typeof getTestcases>>;
+export type CreateTestcaseReturn = Awaited<ReturnType<typeof createTestcase>>;
+export type DeleteTestcaseReturn = Awaited<ReturnType<typeof deleteTestcase>>;
+export type GetAdminUsersReturn = Awaited<ReturnType<typeof getAdminUsers>>;
+export type AdminUserListItem = GetAdminUsersReturn["users"][number];
+export type UpdateUserRoleReturn = Awaited<ReturnType<typeof updateUserRole>>;

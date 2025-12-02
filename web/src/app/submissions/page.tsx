@@ -1,53 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getSubmissions } from "@/actions/submissions";
-import { Badge } from "@/components/ui/badge";
+import { SubmissionRow, SubmissionTableHeader } from "@/components/submissions/submission-row";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableHeader } from "@/components/ui/table";
 
 export const metadata: Metadata = {
 	title: "제출 현황",
 	description: "모든 제출 현황을 확인하세요",
 };
-
-const VERDICT_LABELS: Record<
-	string,
-	{ label: string; variant: "default" | "secondary" | "destructive" | "outline" }
-> = {
-	pending: { label: "대기 중", variant: "outline" },
-	judging: { label: "채점 중", variant: "secondary" },
-	accepted: { label: "정답", variant: "default" },
-	wrong_answer: { label: "오답", variant: "destructive" },
-	time_limit_exceeded: { label: "시간 초과", variant: "destructive" },
-	memory_limit_exceeded: { label: "메모리 초과", variant: "destructive" },
-	runtime_error: { label: "런타임 에러", variant: "destructive" },
-	compile_error: { label: "컴파일 에러", variant: "destructive" },
-	system_error: { label: "시스템 에러", variant: "destructive" },
-};
-
-const LANGUAGE_LABELS: Record<string, string> = {
-	c: "C",
-	cpp: "C++",
-	python: "Python",
-	java: "Java",
-};
-
-function formatDate(date: Date) {
-	return new Intl.DateTimeFormat("ko-KR", {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-	}).format(date);
-}
 
 export default async function SubmissionsPage({
 	searchParams,
@@ -74,72 +35,12 @@ export default async function SubmissionsPage({
 							<div className="rounded-md border">
 								<Table>
 									<TableHeader>
-										<TableRow>
-											<TableHead className="w-[80px]">#</TableHead>
-											<TableHead className="w-[120px]">사용자</TableHead>
-											<TableHead>문제</TableHead>
-											<TableHead className="w-[100px]">결과</TableHead>
-											<TableHead className="w-[80px]">언어</TableHead>
-											<TableHead className="w-[100px] text-right">시간</TableHead>
-											<TableHead className="w-[100px] text-right">메모리</TableHead>
-											<TableHead className="w-[160px]">제출 시간</TableHead>
-										</TableRow>
+										<SubmissionTableHeader />
 									</TableHeader>
 									<TableBody>
-										{submissions.map((submission) => {
-											const verdictInfo = VERDICT_LABELS[submission.verdict] || {
-												label: submission.verdict,
-												variant: "outline" as const,
-											};
-
-											return (
-												<TableRow key={submission.id}>
-													<TableCell>
-														<Link
-															href={`/submissions/${submission.id}`}
-															className="font-mono text-primary hover:underline"
-														>
-															{submission.id}
-														</Link>
-													</TableCell>
-													<TableCell className="font-medium">{submission.userName}</TableCell>
-													<TableCell>
-														<Link
-															href={`/problems/${submission.problemId}`}
-															className="hover:text-primary transition-colors"
-														>
-															{submission.problemTitle}
-														</Link>
-													</TableCell>
-													<TableCell>
-														<Badge
-															variant={verdictInfo.variant}
-															className={
-																submission.verdict === "accepted"
-																	? "bg-emerald-500 hover:bg-emerald-600"
-																	: ""
-															}
-														>
-															{verdictInfo.label}
-														</Badge>
-													</TableCell>
-													<TableCell className="text-muted-foreground">
-														{LANGUAGE_LABELS[submission.language] || submission.language}
-													</TableCell>
-													<TableCell className="text-right text-muted-foreground">
-														{submission.executionTime !== null
-															? `${submission.executionTime}ms`
-															: "-"}
-													</TableCell>
-													<TableCell className="text-right text-muted-foreground">
-														{submission.memoryUsed !== null ? `${submission.memoryUsed}KB` : "-"}
-													</TableCell>
-													<TableCell className="text-muted-foreground text-sm">
-														{formatDate(submission.createdAt)}
-													</TableCell>
-												</TableRow>
-											);
-										})}
+										{submissions.map((submission) => (
+											<SubmissionRow key={submission.id} submission={submission} />
+										))}
 									</TableBody>
 								</Table>
 							</div>

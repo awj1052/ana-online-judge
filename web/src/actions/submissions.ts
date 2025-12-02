@@ -5,25 +5,12 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { problems, submissionResults, submissions, testcases, users } from "@/db/schema";
 
-export type SubmissionListItem = {
-	id: number;
-	problemId: number;
-	problemTitle: string;
-	userId: number;
-	userName: string;
-	language: string;
-	verdict: string;
-	executionTime: number | null;
-	memoryUsed: number | null;
-	createdAt: Date;
-};
-
 export async function getSubmissions(options?: {
 	page?: number;
 	limit?: number;
 	userId?: number;
 	problemId?: number;
-}): Promise<{ submissions: SubmissionListItem[]; total: number }> {
+}) {
 	const page = options?.page ?? 1;
 	const limit = options?.limit ?? 20;
 	const offset = (page - 1) * limit;
@@ -212,3 +199,9 @@ async function pushJudgeJob(job: {
 		.set({ verdict: "judging" })
 		.where(eq(submissions.id, job.submissionId));
 }
+
+export type GetSubmissionsReturn = Awaited<ReturnType<typeof getSubmissions>>;
+export type SubmissionListItem = GetSubmissionsReturn["submissions"][number];
+export type GetSubmissionByIdReturn = Awaited<ReturnType<typeof getSubmissionById>>;
+export type SubmissionDetail = NonNullable<GetSubmissionByIdReturn>;
+export type SubmitCodeResult = Awaited<ReturnType<typeof submitCode>>;

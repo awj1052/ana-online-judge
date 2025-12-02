@@ -4,23 +4,11 @@ import { count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { problems, submissions, users } from "@/db/schema";
 
-export type ProblemListItem = {
-	id: number;
-	title: string;
-	isPublic: boolean;
-	timeLimit: number;
-	memoryLimit: number;
-	authorName: string | null;
-	submissionCount: number;
-	acceptedCount: number;
-	createdAt: Date;
-};
-
 export async function getProblems(options?: {
 	page?: number;
 	limit?: number;
 	publicOnly?: boolean;
-}): Promise<{ problems: ProblemListItem[]; total: number }> {
+}) {
 	const page = options?.page ?? 1;
 	const limit = options?.limit ?? 20;
 	const offset = (page - 1) * limit;
@@ -74,7 +62,7 @@ export async function getProblems(options?: {
 		])
 	);
 
-	const enrichedProblems: ProblemListItem[] = problemsList.map((p) => ({
+	const enrichedProblems = problemsList.map((p) => ({
 		...p,
 		submissionCount: statsMap.get(p.id)?.submissionCount ?? 0,
 		acceptedCount: statsMap.get(p.id)?.acceptedCount ?? 0,
@@ -106,3 +94,7 @@ export async function getProblemById(id: number) {
 
 	return result[0] ?? null;
 }
+
+export type GetProblemsReturn = Awaited<ReturnType<typeof getProblems>>;
+export type ProblemListItem = GetProblemsReturn["problems"][number];
+export type GetProblemByIdReturn = Awaited<ReturnType<typeof getProblemById>>;

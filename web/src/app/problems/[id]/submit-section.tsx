@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { submitCode } from "@/actions/submissions";
-import { CodeEditor } from "@/components/problems/code-editor";
+import { CodeSubmit } from "@/components/problems/code-submit";
 import { Button } from "@/components/ui/button";
+import type { Language } from "@/db/schema";
 
 interface ProblemSubmitSectionProps {
 	problemId: number;
@@ -18,7 +19,7 @@ export function ProblemSubmitSection({ problemId }: ProblemSubmitSectionProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const handleSubmit = async (code: string, language: string) => {
+	const handleSubmit = async (code: string, language: Language) => {
 		if (!session?.user) {
 			router.push("/login");
 			return;
@@ -69,7 +70,7 @@ export function ProblemSubmitSection({ problemId }: ProblemSubmitSectionProps) {
 			{error && (
 				<div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">{error}</div>
 			)}
-			<CodeEditor onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+			<CodeSubmit onSubmit={handleSubmit} isSubmitting={isSubmitting} />
 		</div>
 	);
 }
