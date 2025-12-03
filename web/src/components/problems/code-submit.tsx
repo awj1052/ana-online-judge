@@ -10,8 +10,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { LANGUAGES } from "@/lib/languages";
 import type { Language } from "@/db/schema";
+import { LANGUAGES } from "@/lib/languages";
 import { CodeEditor } from "./code-editor";
 
 interface CodeSubmitProps {

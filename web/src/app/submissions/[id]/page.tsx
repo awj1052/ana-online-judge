@@ -48,11 +48,7 @@ export default async function SubmissionDetailPage({ params }: Props) {
 
 				<CardContent className="space-y-6">
 					{/* 소스 코드 */}
-					<CodeEditor
-						code={submission.code}
-						language={submission.language}
-						readOnly
-					/>
+					<CodeEditor code={submission.code} language={submission.language} readOnly />
 
 					{/* 에러 메시지 (compile_error일 때만) */}
 					{submission.verdict === "compile_error" && submission.errorMessage && (

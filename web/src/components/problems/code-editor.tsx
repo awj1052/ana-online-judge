@@ -2,8 +2,8 @@
 
 import Editor from "@monaco-editor/react";
 import { useTheme } from "next-themes";
-import { LANGUAGE_MAP } from "@/lib/languages";
 import type { Language } from "@/db/schema";
+import { LANGUAGE_MAP } from "@/lib/languages";
 
 interface CodeEditorProps {
 	code: string;

@@ -33,12 +33,14 @@ async function ensureBucket() {
 	try {
 		await s3Client.send(new HeadBucketCommand({ Bucket: BUCKET }));
 		bucketChecked = true;
+		// biome-ignore lint/suspicious/noExplicitAny: error is any
 	} catch (error: any) {
 		if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
 			try {
 				await s3Client.send(new CreateBucketCommand({ Bucket: BUCKET }));
 				console.log(`Created bucket: ${BUCKET}`);
 				bucketChecked = true;
+				// biome-ignore lint/suspicious/noExplicitAny: createError is any
 			} catch (createError: any) {
 				// Bucket might have been created by another request
 				if (

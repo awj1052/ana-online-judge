@@ -109,6 +109,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
 
 					// 이미지
 					img: ({ src, alt }) => (
+						// biome-ignore lint/performance/noImgElement: src can be blob
 						<img
 							src={src}
 							alt={alt || ""}
