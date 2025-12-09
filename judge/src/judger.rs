@@ -34,6 +34,7 @@ pub struct JudgeJob {
     pub ignore_time_limit_bonus: bool,
     pub memory_limit: u32, // MB
     pub ignore_memory_limit_bonus: bool,
+    pub max_score: i64,
     pub testcases: Vec<TestcaseInfo>,
     /// Problem type (icpc or special_judge)
     #[serde(default)]
@@ -55,12 +56,27 @@ pub struct TestcaseInfo {
 pub struct JudgeResult {
     pub submission_id: i64,
     pub verdict: String,
+    pub score: i64,
     pub execution_time: Option<u32>,
     pub memory_used: Option<u32>,
     pub testcase_results: Vec<TestcaseResult>,
     /// Compile error / Runtime error message
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_message: Option<String>,
+}
+
+impl JudgeResult {
+    pub fn system_error(submission_id: i64, error: String) -> Self {
+        Self {
+            submission_id,
+            verdict: Verdict::SystemError.to_string(),
+            score: 0,
+            execution_time: None,
+            memory_used: None,
+            testcase_results: vec![],
+            error_message: Some(error),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -104,6 +120,7 @@ pub async fn process_judge_job(
             return Ok(JudgeResult {
                 submission_id: job.submission_id,
                 verdict: Verdict::CompileError.to_string(),
+                score: 0,
                 execution_time: None,
                 memory_used: None,
                 testcase_results: vec![],
@@ -122,13 +139,15 @@ pub async fn process_judge_job(
                 {
                     Ok(binary_path) => Some(binary_path),
                     Err(e) => {
+                        warn!("Failed to get checker for problem {}: {:#}", job.problem_id, e);
                         return Ok(JudgeResult {
                             submission_id: job.submission_id,
                             verdict: Verdict::SystemError.to_string(),
+                            score: 0,
                             execution_time: None,
                             memory_used: None,
                             testcase_results: vec![],
-                            error_message: Some(format!("Failed to compile checker: {}", e)),
+                            error_message: Some(format!("Failed to compile checker: {:#}", e)),
                         });
                     }
                 }
@@ -137,6 +156,7 @@ pub async fn process_judge_job(
                 return Ok(JudgeResult {
                     submission_id: job.submission_id,
                     verdict: Verdict::SystemError.to_string(),
+                    score: 0,
                     execution_time: None,
                     memory_used: None,
                     testcase_results: vec![],
@@ -295,6 +315,7 @@ pub async fn process_judge_job(
         submission_id: job.submission_id,
         verdict: overall_verdict.to_string(),
         execution_time,
+        score: if overall_verdict == Verdict::Accepted { job.max_score } else { 0 },
         memory_used,
         testcase_results,
         error_message: None,

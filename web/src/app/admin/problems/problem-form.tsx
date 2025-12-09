@@ -7,6 +7,7 @@ import { createProblem, updateProblem } from "@/actions/admin";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -17,7 +18,8 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { ProblemType } from "@/db/schema";
+import type { Language, ProblemType } from "@/db/schema";
+import { LANGUAGES } from "@/lib/languages";
 
 const DEFAULT_CONTENT = `## 문제
 
@@ -60,10 +62,13 @@ interface ProblemFormProps {
 		content: string;
 		timeLimit: number;
 		memoryLimit: number;
+		maxScore: number;
 		isPublic: boolean;
 		problemType: ProblemType;
 		checkerPath: string | null;
 		validatorPath: string | null;
+		referenceCodePath: string | null;
+		allowedLanguages: string[] | null;
 	};
 }
 
@@ -72,9 +77,15 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [content, setContent] = useState(problem?.content || DEFAULT_CONTENT);
-	const [problemType, setProblemType] = useState<ProblemType>(
-		problem?.problemType || "icpc"
+	const [problemType, setProblemType] = useState<ProblemType>(problem?.problemType || "icpc");
+	const [allowedLanguages, setAllowedLanguages] = useState<Language[]>(
+		problem?.allowedLanguages
+			? (problem.allowedLanguages.filter((lang): lang is Language =>
+					["c", "cpp", "python", "java"].includes(lang)
+			  ) as Language[])
+			: []
 	);
+	const [referenceCodeFile, setReferenceCodeFile] = useState<File | null>(null);
 
 	const isEditing = !!problem;
 
@@ -84,14 +95,25 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 		setError(null);
 
 		const formData = new FormData(event.currentTarget);
-		const data = {
+		const customIdValue = formData.get("customId") as string;
+		const customId = customIdValue ? parseInt(customIdValue, 10) : undefined;
+
+		const data: any = {
+			id: customId,
 			title: formData.get("title") as string,
 			content: content,
 			timeLimit: parseInt(formData.get("timeLimit") as string, 10),
 			memoryLimit: parseInt(formData.get("memoryLimit") as string, 10),
+			maxScore: parseInt(formData.get("maxScore") as string, 10),
 			isPublic: formData.get("isPublic") === "on",
 			problemType,
+			allowedLanguages: allowedLanguages.length > 0 ? allowedLanguages : null,
 		};
+
+		// ANIGMA 문제이고 reference code 파일이 있으면 File 객체로 전달
+		if (problemType === "anigma" && referenceCodeFile) {
+			data.referenceCodeFile = referenceCodeFile;
+		}
 
 		try {
 			if (isEditing) {
@@ -101,8 +123,8 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 				const newProblem = await createProblem(data);
 				router.push(`/admin/problems/${newProblem.id}/testcases`);
 			}
-		} catch {
-			setError("저장 중 오류가 발생했습니다.");
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "저장 중 오류가 발생했습니다.");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -119,6 +141,23 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 						<div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">{error}</div>
 					)}
 
+					{!isEditing && (
+						<div className="space-y-2">
+							<Label htmlFor="customId">문제 ID (선택사항)</Label>
+							<Input
+								id="customId"
+								name="customId"
+								type="number"
+								placeholder="비워두면 자동 할당됩니다"
+								min={1}
+								disabled={isSubmitting}
+							/>
+							<p className="text-xs text-muted-foreground">
+								문제 ID를 지정하지 않으면 자동으로 증가하는 번호가 할당됩니다.
+							</p>
+						</div>
+					)}
+
 					<div className="space-y-2">
 						<Label htmlFor="title">제목</Label>
 						<Input
@@ -130,7 +169,7 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 						/>
 					</div>
 
-					<div className="grid grid-cols-3 gap-4">
+					<div className="grid grid-cols-2 gap-4">
 						<div className="space-y-2">
 							<Label htmlFor="timeLimit">시간 제한 (ms)</Label>
 							<Input
@@ -158,6 +197,19 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 							/>
 						</div>
 						<div className="space-y-2">
+							<Label htmlFor="maxScore">최대 점수</Label>
+							<Input
+								id="maxScore"
+								name="maxScore"
+								type="number"
+								defaultValue={problem?.maxScore || 100}
+								min={1}
+								max={1000}
+								required
+								disabled={isSubmitting}
+							/>
+						</div>
+						<div className="space-y-2">
 							<Label htmlFor="problemType">문제 유형</Label>
 							<Select
 								value={problemType}
@@ -167,26 +219,61 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 								<SelectTrigger id="problemType">
 									<SelectValue placeholder="문제 유형 선택" />
 								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="icpc">ICPC (일반)</SelectItem>
-									<SelectItem value="special_judge">스페셜 저지</SelectItem>
-								</SelectContent>
+							<SelectContent>
+								<SelectItem value="icpc">ICPC (일반)</SelectItem>
+								<SelectItem value="special_judge">스페셜 저지</SelectItem>
+								<SelectItem value="anigma">ANIGMA</SelectItem>
+							</SelectContent>
 							</Select>
 						</div>
 					</div>
 
-					{problemType === "special_judge" && (
-						<div className="p-4 border rounded-md bg-muted/50">
-							<p className="text-sm text-muted-foreground">
-								스페셜 저지 문제입니다. 문제 저장 후 &quot;설정&quot; 탭에서 체커를 업로드해주세요.
+				{problemType === "special_judge" && (
+					<div className="p-4 border rounded-md bg-muted/50">
+						<p className="text-sm text-muted-foreground">
+							스페셜 저지 문제입니다. 문제 저장 후 &quot;설정&quot; 탭에서 체커를 업로드해주세요.
+						</p>
+						{problem?.checkerPath && (
+							<p className="text-sm text-green-600 mt-2">
+								✓ 체커가 설정되어 있습니다: {problem.checkerPath}
 							</p>
-							{problem?.checkerPath && (
-								<p className="text-sm text-green-600 mt-2">
-									✓ 체커가 설정되어 있습니다: {problem.checkerPath}
+						)}
+					</div>
+				)}
+
+				{problemType === "anigma" && (
+					<div className="space-y-4">
+						<div className="p-4 border rounded-md bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900">
+							<p className="text-sm text-purple-900 dark:text-purple-100">
+								ANIGMA 문제입니다. 사용자는 ZIP 파일로 제출하며, 런타임 수정 점수와 편집 거리 보너스가 계산됩니다.
+							</p>
+						</div>
+						
+						<div className="space-y-2">
+							<Label htmlFor="referenceCode">원본 코드 (ZIP 파일)</Label>
+							<Input
+								id="referenceCode"
+								type="file"
+								accept=".zip"
+								onChange={(e) => {
+									if (e.target.files?.[0]) {
+										setReferenceCodeFile(e.target.files[0]);
+									}
+								}}
+								disabled={isSubmitting}
+								className="cursor-pointer"
+							/>
+							<p className="text-sm text-muted-foreground">
+								편집 거리 계산을 위한 원본 코드를 ZIP 파일로 업로드하세요. (선택사항)
+							</p>
+							{problem?.referenceCodePath && (
+								<p className="text-sm text-green-600 dark:text-green-400">
+									✓ 원본 코드가 설정되어 있습니다
 								</p>
 							)}
 						</div>
-					)}
+					</div>
+				)}
 
 					<div className="space-y-2">
 						<Label>지문</Label>
@@ -197,6 +284,36 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 							disabled={isSubmitting}
 							minHeight="500px"
 						/>
+					</div>
+
+					<div className="space-y-2">
+						<Label>허용 언어 (선택하지 않으면 모든 언어 허용)</Label>
+						<div className="flex flex-wrap gap-4 p-4 border rounded-md">
+							{LANGUAGES.map((lang) => (
+								<div key={lang.value} className="flex items-center space-x-2">
+									<Checkbox
+										id={`lang-${lang.value}`}
+										checked={allowedLanguages.includes(lang.value)}
+										onCheckedChange={(checked) => {
+											if (checked) {
+												setAllowedLanguages([...allowedLanguages, lang.value]);
+											} else {
+												setAllowedLanguages(
+													allowedLanguages.filter((l) => l !== lang.value)
+												);
+											}
+										}}
+										disabled={isSubmitting}
+									/>
+									<Label
+										htmlFor={`lang-${lang.value}`}
+										className="cursor-pointer font-normal"
+									>
+										{lang.label}
+									</Label>
+								</div>
+							))}
+						</div>
 					</div>
 
 					<div className="flex items-center space-x-2">

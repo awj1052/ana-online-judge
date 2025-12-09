@@ -61,5 +61,3 @@ export default async function ProblemSettingsPage({ params }: Props) {
 		</div>
 	);
 }
-
-

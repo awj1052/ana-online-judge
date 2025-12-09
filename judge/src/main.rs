@@ -1,22 +1,27 @@
+mod anigma;
 mod checker;
 mod compiler;
 mod executer;
 mod judger;
 mod languages;
+mod playground;
 mod redis_manager;
 mod sandbox;
 mod storage;
 mod validator;
+mod utils;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use storage::StorageClient;
 use tracing::{error, info};
 
-use crate::checker::CheckerManager;
+use crate::anigma::{process_anigma_job, AnigmaJudgeJob, AnigmaJudgeResult};
+use crate::checker::{CheckerManager, Verdict};
 use crate::judger::{process_judge_job, JudgeJob, JudgeResult};
+use crate::playground::{process_playground_job, PlaygroundJob, PlaygroundResult};
 use crate::redis_manager::RedisManager;
-use crate::validator::{process_validate_job, ValidateJob, ValidatorManager};
+use crate::validator::{process_validate_job, ValidateJob, ValidateResult, ValidatorManager};
 
 /// Worker job enum - represents different types of jobs the worker can process
 #[derive(Debug, Serialize, Deserialize)]
@@ -28,6 +33,12 @@ pub enum WorkerJob {
     /// Validate testcases
     #[serde(rename = "validate")]
     Validate(ValidateJob),
+    /// Anigma Judge Job
+    #[serde(rename = "anigma")]
+    Anigma(AnigmaJudgeJob),
+    /// Playground execution job
+    #[serde(rename = "playground")]
+    Playground(PlaygroundJob),
 }
 
 #[tokio::main]
@@ -75,14 +86,7 @@ async fn main() -> Result<()> {
                     Ok(result) => result,
                     Err(e) => {
                         error!("Failed to process judge job {}: {}", job.submission_id, e);
-                        JudgeResult {
-                            submission_id: job.submission_id,
-                            verdict: "system_error".into(),
-                            execution_time: None,
-                            memory_used: None,
-                            testcase_results: vec![],
-                            error_message: Some(format!("{:#}", e)),
-                        }
+                        JudgeResult::system_error(job.submission_id, format!("{:#}", e))
                     }
                 };
 
@@ -109,12 +113,7 @@ async fn main() -> Result<()> {
                             "Failed to process validate job for problem {}: {}",
                             job.problem_id, e
                         );
-                        validator::ValidateResult {
-                            problem_id: job.problem_id,
-                            success: false,
-                            testcase_results: vec![],
-                            error_message: Some(format!("{:#}", e)),
-                        }
+                        ValidateResult::failed(job.problem_id, format!("{:#}", e))
                     }
                 };
 
@@ -128,6 +127,62 @@ async fn main() -> Result<()> {
                 info!(
                     "Validate job completed: problem_id={}, success={}",
                     result.problem_id, result.success
+                );
+            }
+            WorkerJob::Anigma(job) => {
+                info!(
+                    "Received anigma job: submission_id={}, problem_id={}",
+                    job.submission_id, job.problem_id
+                );
+
+                let result = match process_anigma_job(&job, &storage).await {
+                    Ok(result) => result,
+                    Err(e) => {
+                        error!("Failed to process anigma job {}: {}", job.submission_id, e);
+                        AnigmaJudgeResult::system_error(job.submission_id, format!("{:#}", e))
+                    }
+                };
+                
+                 if let Err(e) = redis.store_anigma_result(&result).await {
+                    error!("Failed to store anigma result: {}", e);
+                }
+
+                info!(
+                    "Anigma job completed: submission_id={}, verdict={}",
+                    result.base.submission_id, result.base.verdict
+                );
+            }
+            WorkerJob::Playground(job) => {
+                info!(
+                    "Received playground job: session_id={}, target={}",
+                    job.session_id, job.target_path
+                );
+                
+                let result = match process_playground_job(&job).await {
+                    Ok(result) => result,
+                    Err(e) => {
+                        error!("Failed to process playground job {}: {}", job.session_id, e);
+                        PlaygroundResult {
+                            session_id: job.session_id.clone(),
+                            success: false,
+                            stdout: String::new(),
+                            stderr: format!("Internal server error: {:#}", e),
+                            exit_code: 1,
+                            time_ms: 0,
+                            memory_kb: 0,
+                            compile_output: None,
+                        }
+                    }
+                };
+                
+                // Store result using the key provided in the job
+                if let Err(e) = redis.store_playground_result(&job.result_key, &result).await {
+                    error!("Failed to store playground result: {}", e);
+                }
+                
+                info!(
+                    "Playground job completed: session_id={}, success={}",
+                    result.session_id, result.success
                 );
             }
         }

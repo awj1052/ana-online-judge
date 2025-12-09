@@ -1,0 +1,273 @@
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+use crate::executer::{execute_sandboxed, ExecutionLimits, ExecutionSpec, ExecutionStatus};
+use crate::checker::Verdict;
+use crate::judger::{TestcaseResult, compare_output, JudgeResult};
+use crate::storage::StorageClient;
+use crate::sandbox::get_config;
+use crate::utils::extract_zip;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AnigmaJudgeJob {
+    pub submission_id: i64,
+    pub problem_id: i64,
+    pub zip_path: String,
+    pub reference_code_path: String,
+    pub time_limit: u32,
+    pub memory_limit: u32,
+    pub max_score: i64,
+    pub testcases: Vec<AnigmaTestcase>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checker_path: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AnigmaTestcase {
+    pub id: i64,
+    pub input_path: String,
+    pub expected_output_path: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AnigmaJudgeResult {
+    #[serde(flatten)]
+    pub base: JudgeResult,
+    pub edit_distance: Option<u32>,
+}
+
+impl AnigmaJudgeResult {
+    pub fn system_error(submission_id: i64, message: String) -> Self {
+        Self {
+            base: JudgeResult::system_error(submission_id, message),
+            edit_distance: None,
+        }
+    }
+}
+
+pub async fn process_anigma_job(
+    job: &AnigmaJudgeJob,
+    storage: &StorageClient,
+) -> Result<AnigmaJudgeResult> {
+    let temp_dir = tempfile::tempdir()?;
+    
+    // 1. zip 파일 다운로드 및 압축 해제
+    let zip_data = storage.download(&job.zip_path).await?;
+    let cursor = std::io::Cursor::new(zip_data);
+    extract_zip(cursor, temp_dir.path())?;
+    
+    // 제출된 코드 전체 읽기 (편집 거리 계산용)
+    let submitted_code = read_all_source_files(temp_dir.path())?;
+    
+    // 2. Makefile 존재 여부 확인
+    let makefile_path = temp_dir.path().join("Makefile");
+    if !makefile_path.exists() && !temp_dir.path().join("makefile").exists() {
+        return Ok(AnigmaJudgeResult {
+            base: JudgeResult {
+                submission_id: job.submission_id,
+                verdict: "compile_error".into(),
+                score: 0,
+                execution_time: None,
+                memory_used: None,
+                testcase_results: vec![],
+                error_message: Some("Makefile not found".into()),
+            },
+            edit_distance: None,
+        })
+    }
+    
+    // 3. make build 실행
+    let config = get_config();
+    let build_spec = ExecutionSpec::new(temp_dir.path())
+        .with_command(vec!["make".to_string(), "build".to_string()])
+        .with_limits(ExecutionLimits {
+            time_ms: config.compile_time_limit_ms,
+            memory_mb: config.compile_memory_limit_mb,
+        })
+        .with_copy_out_dir(temp_dir.path());
+        
+    let build_result = execute_sandboxed(&build_spec).await?;
+    
+    if !build_result.is_success() {
+        tracing::error!(
+            "ANIGMA build failed for submission {}: exit_code={:?}, stdout={}, stderr={}",
+            job.submission_id,
+            build_result.status,
+            build_result.stdout,
+            build_result.stderr
+        );
+        return Ok(AnigmaJudgeResult {
+            base: JudgeResult {
+                submission_id: job.submission_id,
+                verdict: "compile_error".into(),
+                score: 0,
+                execution_time: None,
+                memory_used: None,
+                testcase_results: vec![],
+                error_message: Some(build_result.stderr),
+            },
+            edit_distance: None,
+        });
+    }
+    
+    // 4. 각 테스트케이스 실행
+    let mut testcase_results = Vec::new();
+    let mut overall_verdict = Verdict::Accepted;
+    let mut max_time_ms = 0u32;
+    let mut max_memory_kb = 0u32;
+    
+    for tc in &job.testcases {
+        let input_data = storage.download(&tc.input_path).await?;
+        let input_file = temp_dir.path().join("input.txt");
+        std::fs::write(&input_file, &input_data)?;
+        
+        // make run INPUT=input.txt
+        // 주의: sandbox 내부에서는 상대 경로로 접근해야 함
+        let input_arg = "INPUT=input.txt".to_string();
+        
+        let run_spec = ExecutionSpec::new(temp_dir.path())
+            .with_command(vec!["make".to_string(), "run".to_string(), input_arg])
+            .with_limits(ExecutionLimits {
+                time_ms: job.time_limit,
+                memory_mb: job.memory_limit,
+            });
+            
+        let run_result = execute_sandboxed(&run_spec).await?;
+        
+        // 디버깅용 로그
+        tracing::info!(
+            "ANIGMA testcase {} result: status={:?}, stdout={}, stderr={}",
+            tc.id,
+            run_result.status,
+            run_result.stdout.chars().take(100).collect::<String>(),
+            run_result.stderr.chars().take(100).collect::<String>()
+        );
+        
+        let verdict = match run_result.status {
+            ExecutionStatus::Exited(0) => {
+                let expected = storage.download_string(&tc.expected_output_path).await?;
+                if compare_output(&run_result.stdout, &expected) {
+                    Verdict::Accepted
+                } else {
+                    Verdict::WrongAnswer
+                }
+            }
+            ExecutionStatus::Exited(_) => Verdict::RuntimeError,
+            ExecutionStatus::TimeLimitExceeded => Verdict::TimeLimitExceeded,
+            ExecutionStatus::MemoryLimitExceeded => Verdict::MemoryLimitExceeded,
+             _ => Verdict::RuntimeError,
+        };
+        
+        // stderr가 있으면 output에 함께 포함
+        let output = if run_result.stderr.is_empty() {
+            run_result.stdout.clone()
+        } else {
+            format!("=== stdout ===\n{}\n=== stderr ===\n{}", run_result.stdout, run_result.stderr)
+        };
+
+
+        
+        testcase_results.push(TestcaseResult {
+            testcase_id: tc.id,
+            verdict: verdict.to_string(),
+            execution_time: Some(run_result.time_ms),
+            memory_used: Some(run_result.memory_kb),
+            output: Some(output.chars().take(4096).collect()),
+        });
+
+        if verdict != Verdict::Accepted && overall_verdict == Verdict::Accepted {
+            overall_verdict = verdict;
+            break;
+        }
+    }
+
+    // 중단 이후 남은 테스트케이스는 모두 스킵 처리
+    for i in testcase_results.len()..job.testcases.len() {
+        let tc = &job.testcases[i];
+        testcase_results.push(TestcaseResult {
+            testcase_id: tc.id,
+            verdict: Verdict::Skipped.to_string(),
+            execution_time: None,
+            memory_used: None,
+            output: None,
+        });
+    }
+    
+    // 5. 점수 계산
+    let score = match overall_verdict {
+        Verdict::Accepted => job.max_score,
+        _ => 0,
+    };
+    
+    // 원본 코드 다운로드 (편집 거리 계산용)
+    let reference_code = if job.reference_code_path.is_empty() {
+        // reference_code_path가 비어있으면 빈 문자열 사용 (편집 거리 보너스 없음)
+        String::new()
+    } else if job.reference_code_path.ends_with(".zip") {
+        // ZIP 파일인 경우 압축 해제 후 모든 소스 파일 읽기
+        let ref_temp_dir = tempfile::tempdir()?;
+        let ref_zip_data = storage.download(&job.reference_code_path).await?;
+        let ref_cursor = std::io::Cursor::new(ref_zip_data);
+        extract_zip(ref_cursor, ref_temp_dir.path())?;
+        read_all_source_files(ref_temp_dir.path())?
+    } else {
+        // 일반 텍스트 파일인 경우
+        storage.download_string(&job.reference_code_path).await?
+    };
+    
+    let edit_distance = match reference_code {
+        ref_code if ref_code.is_empty() => {
+            tracing::warn!("No reference code for this problem: {}", job.problem_id);
+            None
+        }
+        ref_code => {
+            let distance = triple_accel::levenshtein(submitted_code.as_ref(), ref_code.as_ref());
+            Some(distance)
+        }
+    };
+    
+    Ok(AnigmaJudgeResult {
+        base: JudgeResult {
+            submission_id: job.submission_id,
+            verdict: overall_verdict.to_string(),
+            score,
+            execution_time: if max_time_ms > 0 { Some(max_time_ms) } else { None },
+            memory_used: if max_memory_kb > 0 { Some(max_memory_kb) } else { None },
+            testcase_results,
+            error_message: None,
+        },
+        edit_distance,
+    })
+}
+
+// Helper to read all source files in directory recursively
+fn read_all_source_files(dir: &Path) -> Result<String> {
+    let mut code = String::new();
+    let entries = std::fs::read_dir(dir)?;
+    
+    // 정렬된 순서로 읽기 위해 vector로 수집
+    let mut paths = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        paths.push(entry.path());
+    }
+    paths.sort();
+    
+    for path in paths {
+        if path.is_dir() {
+             code.push_str(&read_all_source_files(&path)?);
+        } else {
+             // 소스 파일 확장자 체크 (cpp, c, h, hpp 등)
+             if let Some(ext) = path.extension() {
+                 let ext_str = ext.to_string_lossy().to_lowercase();
+                 if ["cpp", "c", "h", "hpp", "cc", "cxx"].contains(&ext_str.as_str()) {
+                      let content = std::fs::read_to_string(&path).unwrap_or_default();
+                      code.push_str(&content);
+                      code.push('\n');
+                 }
+             }
+        }
+    }
+    
+    Ok(code)
+}

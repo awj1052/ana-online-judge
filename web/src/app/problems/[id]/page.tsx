@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getProblemById } from "@/actions/problems";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { ProblemTypeBadge } from "@/components/problems/problem-type-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ProblemSubmitSection } from "./submit-section";
@@ -41,11 +42,14 @@ export default async function ProblemDetailPage({ params }: Props) {
 					<Card>
 						<CardHeader>
 							<div className="flex items-start justify-between gap-4">
-								<div>
+								<div className="flex-1">
 									<div className="flex items-center gap-2 text-muted-foreground mb-2">
 										<span className="font-mono">#{problem.id}</span>
 									</div>
-									<CardTitle className="text-2xl">{problem.title}</CardTitle>
+									<div className="flex items-center gap-3">
+										<CardTitle className="text-2xl">{problem.title}</CardTitle>
+										<ProblemTypeBadge type={problem.problemType} />
+									</div>
 								</div>
 							</div>
 							<div className="flex items-center gap-4 text-sm text-muted-foreground mt-4">
@@ -62,7 +66,11 @@ export default async function ProblemDetailPage({ params }: Props) {
 						<CardContent className="space-y-6">
 							<MarkdownRenderer content={problem.content} />
 							<Separator />
-							<ProblemSubmitSection problemId={problem.id} />
+							<ProblemSubmitSection
+								problemId={problem.id}
+								problemType={problem.problemType}
+								allowedLanguages={problem.allowedLanguages}
+							/>
 						</CardContent>
 					</Card>
 				</div>

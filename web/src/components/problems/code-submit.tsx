@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Play } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Select,
@@ -17,16 +17,37 @@ import { CodeEditor } from "./code-editor";
 interface CodeSubmitProps {
 	onSubmit: (code: string, language: Language) => Promise<void>;
 	isSubmitting?: boolean;
+	allowedLanguages?: string[] | null;
 }
 
-export function CodeSubmit({ onSubmit, isSubmitting = false }: CodeSubmitProps) {
-	const [language, setLanguage] = useState<Language>("cpp");
-	const [code, setCode] = useState(LANGUAGES[0].defaultCode);
+export function CodeSubmit({
+	onSubmit,
+	isSubmitting = false,
+	allowedLanguages,
+}: CodeSubmitProps) {
+	// 허용된 언어 목록 필터링 (NULL이거나 빈 배열이면 모든 언어 허용)
+	const availableLanguages =
+		allowedLanguages && allowedLanguages.length > 0
+			? LANGUAGES.filter((lang) => allowedLanguages.includes(lang.value))
+			: LANGUAGES;
+
+	// 첫 번째 허용된 언어를 기본값으로 설정
+	const [language, setLanguage] = useState<Language>(availableLanguages[0]?.value || "cpp");
+	const [code, setCode] = useState(availableLanguages[0]?.defaultCode || "");
+
+	// allowedLanguages가 변경되면 언어 재설정
+	useEffect(() => {
+		if (availableLanguages.length > 0 && !availableLanguages.find((l) => l.value === language)) {
+			const newLang = availableLanguages[0];
+			setLanguage(newLang.value);
+			setCode(newLang.defaultCode);
+		}
+	}, [allowedLanguages, availableLanguages, language]);
 
 	const handleLanguageChange = (value: string) => {
 		const newLanguage = value as Language;
 		setLanguage(newLanguage);
-		const langConfig = LANGUAGES.find((l) => l.value === newLanguage);
+		const langConfig = availableLanguages.find((l) => l.value === newLanguage);
 		if (langConfig) {
 			setCode(langConfig.defaultCode);
 		}
@@ -44,7 +65,7 @@ export function CodeSubmit({ onSubmit, isSubmitting = false }: CodeSubmitProps) 
 						<SelectValue placeholder="언어 선택" />
 					</SelectTrigger>
 					<SelectContent>
-						{LANGUAGES.map((lang) => (
+						{availableLanguages.map((lang) => (
 							<SelectItem key={lang.value} value={lang.value}>
 								{lang.label}
 							</SelectItem>

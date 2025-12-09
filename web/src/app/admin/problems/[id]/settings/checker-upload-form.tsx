@@ -1,7 +1,7 @@
 "use client";
 
+import { AlertCircle, CheckCircle, Loader2, Upload } from "lucide-react";
 import { useState } from "react";
-import { Loader2, Upload, CheckCircle, AlertCircle } from "lucide-react";
 import { uploadChecker } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,9 +71,7 @@ export function CheckerUploadForm({
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
 					체커 설정
-					{currentCheckerPath && (
-						<CheckCircle className="h-5 w-5 text-green-500" />
-					)}
+					{currentCheckerPath && <CheckCircle className="h-5 w-5 text-green-500" />}
 				</CardTitle>
 				<CardDescription>
 					{isSpecialJudge
@@ -85,8 +83,8 @@ export function CheckerUploadForm({
 				{!isSpecialJudge && (
 					<div className="p-4 rounded-md bg-muted">
 						<p className="text-sm text-muted-foreground">
-							이 문제는 ICPC (일반) 유형입니다. 체커를 사용하려면 먼저 문제 유형을
-							&quot;스페셜 저지&quot;로 변경하세요.
+							이 문제는 ICPC (일반) 유형입니다. 체커를 사용하려면 먼저 문제 유형을 &quot;스페셜
+							저지&quot;로 변경하세요.
 						</p>
 					</div>
 				)}
@@ -127,10 +125,7 @@ export function CheckerUploadForm({
 							/>
 						</div>
 
-						<Button
-							onClick={handleUpload}
-							disabled={isUploading || !sourceCode.trim()}
-						>
+						<Button onClick={handleUpload} disabled={isUploading || !sourceCode.trim()}>
 							{isUploading ? (
 								<>
 									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -149,5 +144,3 @@ export function CheckerUploadForm({
 		</Card>
 	);
 }
-
-

@@ -14,7 +14,9 @@ use serde::Serialize;
 use tokio::task::JoinHandle;
 use tracing::{info, warn};
 
+use crate::anigma::AnigmaJudgeResult;
 use crate::judger::JudgeResult;
+use crate::playground::PlaygroundResult;
 use crate::validator::ValidateResult;
 use crate::WorkerJob;
 
@@ -37,6 +39,12 @@ pub mod keys {
 
     /// Validation result channel (for pub/sub)
     pub const VALIDATE_RESULT_CHANNEL: &str = "validate:results";
+    
+    /// Anigma result key prefix (for polling)
+    pub const ANIGMA_RESULT_PREFIX: &str = "anigma:result:";
+    
+    /// Anigma result channel (for pub/sub)
+    pub const ANIGMA_RESULT_CHANNEL: &str = "anigma:results";
 }
 
 /// Configuration constants
@@ -128,7 +136,7 @@ impl RedisManager {
     pub async fn store_judge_result(&mut self, result: &JudgeResult) -> Result<()> {
         self.store_result(
             &format!("{}{}", keys::JUDGE_RESULT_PREFIX, result.submission_id),
-            keys::JUDGE_RESULT_CHANNEL,
+            Some(keys::JUDGE_RESULT_CHANNEL),
             result,
         )
         .await
@@ -141,17 +149,48 @@ impl RedisManager {
     pub async fn store_validate_result(&mut self, result: &ValidateResult) -> Result<()> {
         self.store_result(
             &format!("{}{}", keys::VALIDATE_RESULT_PREFIX, result.problem_id),
-            keys::VALIDATE_RESULT_CHANNEL,
+            Some(keys::VALIDATE_RESULT_CHANNEL),
             result,
         )
         .await
+    }
+    
+    /// Store an anigma result in Redis.
+    pub async fn store_anigma_result(&mut self, result: &AnigmaJudgeResult) -> Result<()> {
+        self.store_result(
+             &format!("{}{}", keys::ANIGMA_RESULT_PREFIX, result.base.submission_id),
+             Some(keys::ANIGMA_RESULT_CHANNEL),
+             result,
+        )
+        .await
+    }
+    
+    /// Store a playground result in Redis.
+    /// Playground results are just pushed to a specific list or set to a key, usually waited by BLPOP on client side.
+    /// But here the client uses BLPOP, so we should RPUSH to the key.
+    /// Wait, if client uses BLPOP, then we should RPUSH.
+    /// The key is passed in the job.
+    pub async fn store_playground_result(&mut self, key: &str, result: &PlaygroundResult) -> Result<()> {
+        let json = serde_json::to_string(result)?;
+        
+        // Use RPUSH so client's BLPOP can pick it up
+        if let Err(e) = self.conn.rpush::<_, _, ()>(key, &json).await {
+             warn!("Failed to push playground result: {}. Reconnecting...", e);
+             self.reconnect().await?;
+             self.conn.rpush::<_, _, ()>(key, &json).await?;
+        }
+        
+        // Set expiry for the key so it doesn't linger forever if client disconnects
+        let _ = self.conn.expire::<_, ()>(key, 300).await; // 5 minutes
+        
+        Ok(())
     }
 
     /// Internal helper to store and publish a result
     async fn store_result<T: Serialize>(
         &mut self,
         key: &str,
-        channel: &str,
+        channel: Option<&str>,
         result: &T,
     ) -> Result<()> {
         let json = serde_json::to_string(result)?;
@@ -170,7 +209,9 @@ impl RedisManager {
         }
 
         // Publish to channel (ignore errors as there may be no subscribers)
-        let _ = self.conn.publish::<_, _, ()>(channel, &json).await;
+        if let Some(chan) = channel {
+            let _ = self.conn.publish::<_, _, ()>(chan, &json).await;
+        }
 
         Ok(())
     }

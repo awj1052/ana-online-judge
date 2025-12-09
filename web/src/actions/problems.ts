@@ -24,6 +24,7 @@ export async function getProblems(options?: {
 			isPublic: problems.isPublic,
 			timeLimit: problems.timeLimit,
 			memoryLimit: problems.memoryLimit,
+			problemType: problems.problemType,
 			authorName: users.name,
 			createdAt: problems.createdAt,
 		})
@@ -83,6 +84,8 @@ export async function getProblemById(id: number) {
 			isPublic: problems.isPublic,
 			timeLimit: problems.timeLimit,
 			memoryLimit: problems.memoryLimit,
+			problemType: problems.problemType,
+			allowedLanguages: problems.allowedLanguages,
 			authorId: problems.authorId,
 			authorName: users.name,
 			createdAt: problems.createdAt,

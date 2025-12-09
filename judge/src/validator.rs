@@ -50,6 +50,17 @@ pub struct ValidateResult {
     pub error_message: Option<String>,
 }
 
+impl ValidateResult {
+    pub fn failed(problem_id: i64, error_message: String) -> Self {
+        Self {
+            problem_id,
+            success: false,
+            testcase_results: vec![],
+            error_message: Some(error_message),
+        }
+    }
+}
+
 /// Validator exit codes (testlib.h based)
 mod validator_exit_codes {
     pub const OK: i32 = 0; // Valid input

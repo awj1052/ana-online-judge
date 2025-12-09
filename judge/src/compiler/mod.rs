@@ -201,11 +201,14 @@ impl CheckerCompiler {
     // pub fn new(testlib_path: impl AsRef<Path>, cache_dir: impl AsRef<Path>) -> Self {
     pub fn new() -> Self {
         let _ = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/files/testlib.h"));
-        let testlib_path = "./files/testlib.h";
+        
+        let testlib_path = std::env::current_dir()
+            .map(|cwd| cwd.join("files/testlib.h"))
+            .unwrap_or_else(|_| PathBuf::from("files/testlib.h"));
         let cache_dir = "/tmp/checker_cache";
 
         Self {
-            testlib_path: testlib_path.into(),
+            testlib_path,
             cache_dir: cache_dir.into(),
         }
     }
@@ -276,8 +279,13 @@ pub struct ValidatorCompiler {
 
 impl ValidatorCompiler {
     pub fn new() -> Self {
+        // CWD 기준 절대 경로로 변환
+        let testlib_path = std::env::current_dir()
+            .map(|cwd| cwd.join("files/testlib.h"))
+            .unwrap_or_else(|_| PathBuf::from("files/testlib.h"));
+        
         Self {
-            testlib_path: "./files/testlib.h".into(),
+            testlib_path,
             cache_dir: "/tmp/validator_cache".into(),
         }
     }

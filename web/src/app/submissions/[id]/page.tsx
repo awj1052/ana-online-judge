@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { getSubmissionById } from "@/actions/submissions";
 import { CodeEditor } from "@/components/problems/code-editor";
 import { SubmissionRow, SubmissionTableHeader } from "@/components/submissions/submission-row";
-import { VerdictBadge } from "@/components/submissions/verdict-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -15,6 +14,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { SubmissionStatus } from "./submission-status";
 
 interface Props {
 	params: Promise<{ id: string }>;
@@ -47,8 +47,10 @@ export default async function SubmissionDetailPage({ params }: Props) {
 				</CardHeader>
 
 				<CardContent className="space-y-6">
-					{/* 소스 코드 */}
-					<CodeEditor code={submission.code} language={submission.language} readOnly />
+					{/* 소스 코드 (Anigma가 아닌 경우에만 표시) */}
+					{submission.problemType !== "anigma" && (
+						<CodeEditor code={submission.code} language={submission.language} readOnly />
+					)}
 
 					{/* 에러 메시지 (compile_error일 때만) */}
 					{submission.verdict === "compile_error" && submission.errorMessage && (
@@ -61,6 +63,28 @@ export default async function SubmissionDetailPage({ params }: Props) {
 								{submission.errorMessage}
 							</pre>
 						</div>
+					)}
+
+					{/* Anigma 점수 상세 (Anigma 문제일 경우에만 표시) */}
+					{/* score만 표시하도록 변경됨 */}
+					{submission.problemType === "anigma" && (
+						<>
+							<Separator />
+							<div className="rounded-md border bg-muted/10 overflow-hidden">
+								<div className="p-4 bg-muted/30 border-b font-medium flex items-center gap-2">
+									<span>채점 결과</span>
+									<span className="text-sm text-muted-foreground font-normal ml-auto flex items-center gap-4">
+										총점: <span className="font-bold text-primary">{submission.score}</span> / {submission.maxScore}
+										{submission.editDistance !== null && submission.editDistance !== undefined && (
+											<>
+												<span className="text-muted-foreground/50">|</span>
+												Edit Distance: <span className="font-mono">{submission.editDistance}</span>
+											</>
+										)}
+									</span>
+								</div>
+							</div>
+						</>
 					)}
 
 					<Separator />
@@ -97,9 +121,14 @@ export default async function SubmissionDetailPage({ params }: Props) {
 												<TableCell className="font-mono text-muted-foreground">
 													{index + 1}
 												</TableCell>
-												<TableCell>
-													<VerdictBadge verdict={result.verdict} />
-												</TableCell>
+											<TableCell>
+												<SubmissionStatus
+													submissionId={submission.id}
+													initialVerdict={result.verdict}
+													score={submission.score ?? undefined}
+													// maxScore={submission.maxScore}
+												/>
+											</TableCell>
 												<TableCell className="text-right text-muted-foreground">
 													{result.executionTime !== null ? `${result.executionTime}ms` : "-"}
 												</TableCell>

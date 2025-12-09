@@ -8,6 +8,7 @@ const sidebarLinks = [
 	{ href: "/admin", label: "대시보드", icon: LayoutDashboard },
 	{ href: "/admin/problems", label: "문제 관리", icon: FileText },
 	{ href: "/admin/users", label: "사용자 관리", icon: Users },
+	{ href: "/admin/settings", label: "사이트 설정", icon: Settings },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

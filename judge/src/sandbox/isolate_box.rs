@@ -190,6 +190,11 @@ impl IsolateBox {
     pub async fn copy_dir_in(&self, source_dir: &Path) -> Result<()> {
         let mut entries = fs::read_dir(source_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
+            let metadata = entry.metadata().await?;
+            // Skip directories, only copy regular files
+            if metadata.is_dir() {
+                continue;
+            }
             let dest = format!(
                 "{}/{}",
                 self.work_dir(),

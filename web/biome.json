@@ -34,10 +34,11 @@
 			"security": {
 				"noDangerouslySetInnerHtml": "off"
 			},
-			"a11y": {
-				"useKeyWithClickEvents": "warn",
-				"noAutofocus": "off"
-			}
+		"a11y": {
+			"useKeyWithClickEvents": "warn",
+			"noAutofocus": "off",
+			"useSemanticElements": "off"
+		}
 		}
 	},
 	"javascript": {

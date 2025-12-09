@@ -1,24 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { submissionResults, submissions, type Verdict } from "@/db/schema";
-import { getRedisClient } from "@/lib/redis";
-
-const RESULT_KEY_PREFIX = "judge:result:";
-
-interface JudgeResult {
-	submission_id: number;
-	verdict: string;
-	execution_time: number | null;
-	memory_used: number | null;
-	error_message?: string | null;
-	testcase_results: {
-		testcase_id: number;
-		verdict: string;
-		execution_time: number | null;
-		memory_used: number | null;
-	}[];
-}
+import { submissionResults, submissions } from "@/db/schema";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
@@ -35,6 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 			executionTime: submissions.executionTime,
 			memoryUsed: submissions.memoryUsed,
 			score: submissions.score,
+			editDistance: submissions.editDistance,
 		})
 		.from(submissions)
 		.where(eq(submissions.id, submissionId))
@@ -44,90 +28,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 		return NextResponse.json({ error: "Submission not found" }, { status: 404 });
 	}
 
-	// If still judging, check Redis for results
-	if (submission.verdict === "judging" || submission.verdict === "pending") {
-		try {
-			const redis = await getRedisClient();
-			const resultKey = `${RESULT_KEY_PREFIX}${submissionId}`;
-			const resultJson = await redis.get(resultKey);
-
-			if (resultJson) {
-				const result: JudgeResult = JSON.parse(resultJson);
-
-				// Update database with results
-				await db
-					.update(submissions)
-					.set({
-						verdict: result.verdict as Verdict,
-						executionTime: result.execution_time,
-						memoryUsed: result.memory_used,
-						errorMessage: result.error_message ?? null,
-					})
-					.where(eq(submissions.id, submissionId));
-
-				// Insert testcase results
-				if (result.testcase_results && result.testcase_results.length > 0) {
-					// Delete existing results first
-					await db
-						.delete(submissionResults)
-						.where(eq(submissionResults.submissionId, submissionId));
-
-					await db.insert(submissionResults).values(
-						result.testcase_results.map((tc) => ({
-							submissionId,
-							testcaseId: tc.testcase_id,
-							verdict: tc.verdict as Verdict,
-							executionTime: tc.execution_time,
-							memoryUsed: tc.memory_used,
-						}))
-					);
-				}
-
-				// Delete result from Redis
-				await redis.del(resultKey);
-
-				// Return updated data
-				return NextResponse.json({
-					id: submissionId,
-					verdict: result.verdict,
-					executionTime: result.execution_time,
-					memoryUsed: result.memory_used,
-					errorMessage: result.error_message ?? null,
-					score: submission.score,
-					testcaseResults: result.testcase_results.map((tc) => ({
-						verdict: tc.verdict,
-						executionTime: tc.execution_time,
-						memoryUsed: tc.memory_used,
-					})),
-					isComplete: true,
-				});
-			}
-		} catch (error) {
-			console.error("Error checking Redis for results:", error);
-		}
-
-		// Still judging
-		return NextResponse.json({
-			...submission,
-			testcaseResults: [],
-			isComplete: false,
-		});
-	}
+	// Check if judging is complete
+	const isComplete = submission.verdict !== "pending" && submission.verdict !== "judging";
 
 	// Get testcase results if judging is complete
-	const testcaseResults = await db
-		.select({
-			verdict: submissionResults.verdict,
-			executionTime: submissionResults.executionTime,
-			memoryUsed: submissionResults.memoryUsed,
-		})
-		.from(submissionResults)
-		.where(eq(submissionResults.submissionId, submissionId))
-		.orderBy(submissionResults.testcaseId);
+	const testcaseResults = isComplete
+		? await db
+				.select({
+					verdict: submissionResults.verdict,
+					executionTime: submissionResults.executionTime,
+					memoryUsed: submissionResults.memoryUsed,
+				})
+				.from(submissionResults)
+				.where(eq(submissionResults.submissionId, submissionId))
+				.orderBy(submissionResults.testcaseId)
+		: [];
 
 	return NextResponse.json({
 		...submission,
 		testcaseResults,
-		isComplete: true,
+		isComplete,
 	});
 }

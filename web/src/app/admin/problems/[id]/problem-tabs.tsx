@@ -23,10 +23,7 @@ export function ProblemTabs({ problemId }: ProblemTabsProps) {
 			<nav className="flex gap-4" aria-label="Tabs">
 				{tabs.map((tab) => {
 					const href = `${basePath}${tab.href}`;
-					const isActive =
-						tab.href === ""
-							? pathname === basePath
-							: pathname.startsWith(href);
+					const isActive = tab.href === "" ? pathname === basePath : pathname.startsWith(href);
 
 					return (
 						<Link
@@ -47,10 +44,6 @@ export function ProblemTabs({ problemId }: ProblemTabsProps) {
 		</div>
 	);
 }
-
-
-
-
 
 
 

@@ -1,7 +1,7 @@
 "use client";
 
+import { AlertCircle, CheckCircle, Loader2, Play, Upload } from "lucide-react";
 import { useState } from "react";
-import { Loader2, Upload, CheckCircle, AlertCircle, Play } from "lucide-react";
 import { uploadValidator, validateTestcases } from "@/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,13 +82,9 @@ export function ValidatorUploadForm({
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
 					Validator 설정
-					{currentValidatorPath && (
-						<CheckCircle className="h-5 w-5 text-green-500" />
-					)}
+					{currentValidatorPath && <CheckCircle className="h-5 w-5 text-green-500" />}
 				</CardTitle>
-				<CardDescription>
-					테스트케이스 입력 형식을 검증하는 Validator를 설정합니다.
-				</CardDescription>
+				<CardDescription>테스트케이스 입력 형식을 검증하는 Validator를 설정합니다.</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
 				{currentValidatorPath && (
@@ -179,5 +175,3 @@ export function ValidatorUploadForm({
 		</Card>
 	);
 }
-
-

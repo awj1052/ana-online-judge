@@ -139,10 +139,7 @@ export function generateTestcasePath(
  * Generate a checker file path
  * Structure: problems/{problemId}/checker/{filename}
  */
-export function generateCheckerPath(
-	problemId: number,
-	filename: string
-): string {
+export function generateCheckerPath(problemId: number, filename: string): string {
 	return `${generateProblemBasePath(problemId)}/checker/${filename}`;
 }
 
@@ -150,10 +147,7 @@ export function generateCheckerPath(
  * Generate a validator file path
  * Structure: problems/{problemId}/validator/{filename}
  */
-export function generateValidatorPath(
-	problemId: number,
-	filename: string
-): string {
+export function generateValidatorPath(problemId: number, filename: string): string {
 	return `${generateProblemBasePath(problemId)}/validator/${filename}`;
 }
 
@@ -161,10 +155,7 @@ export function generateValidatorPath(
  * Generate an external file path
  * Structure: problems/{problemId}/external_files/{filename}
  */
-export function generateExternalFilePath(
-	problemId: number,
-	filename: string
-): string {
+export function generateExternalFilePath(problemId: number, filename: string): string {
 	return `${generateProblemBasePath(problemId)}/external_files/${filename}`;
 }
 
@@ -243,7 +234,7 @@ export async function listObjects(prefix: string): Promise<string[]> {
  */
 export async function deleteAllWithPrefix(prefix: string): Promise<number> {
 	const keys = await listObjects(prefix);
-	
+
 	if (keys.length === 0) {
 		return 0;
 	}
@@ -254,7 +245,7 @@ export async function deleteAllWithPrefix(prefix: string): Promise<number> {
 
 	for (let i = 0; i < keys.length; i += batchSize) {
 		const batch = keys.slice(i, i + batchSize);
-		
+
 		await s3Client.send(
 			new DeleteObjectsCommand({
 				Bucket: BUCKET,
@@ -277,4 +268,19 @@ export async function deleteAllWithPrefix(prefix: string): Promise<number> {
 export async function deleteAllProblemFiles(problemId: number): Promise<number> {
 	const prefix = generateProblemBasePath(problemId);
 	return deleteAllWithPrefix(`${prefix}/`);
+}
+
+/**
+ * Generate a playground file path
+ * Structure: playground/{sessionId}/{filePath}
+ */
+export function generatePlaygroundFilePath(sessionId: string, filePath: string): string {
+	return `playground/${sessionId}/${filePath}`;
+}
+
+/**
+ * Delete all files for a playground session
+ */
+export async function deleteAllPlaygroundFiles(sessionId: string): Promise<number> {
+	return deleteAllWithPrefix(`playground/${sessionId}/`);
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getProblems } from "@/actions/problems";
+import { ProblemTypeBadge } from "@/components/problems/problem-type-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
 	Table,
@@ -59,14 +60,17 @@ export default async function ProblemsPage({
 												<TableCell className="font-mono text-muted-foreground">
 													{problem.id}
 												</TableCell>
-												<TableCell>
+											<TableCell>
+												<div className="flex items-center gap-2">
 													<Link
 														href={`/problems/${problem.id}`}
 														className="font-medium hover:text-primary transition-colors"
 													>
 														{problem.title}
 													</Link>
-												</TableCell>
+													<ProblemTypeBadge type={problem.problemType} />
+												</div>
+											</TableCell>
 												<TableCell className="text-right text-muted-foreground">
 													{problem.submissionCount}
 												</TableCell>

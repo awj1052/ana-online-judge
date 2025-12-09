@@ -10,18 +10,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 		Credentials({
 			name: "credentials",
 			credentials: {
-				email: { label: "이메일", type: "email" },
+				username: { label: "아이디", type: "text" },
 				password: { label: "비밀번호", type: "password" },
 			},
 			async authorize(credentials) {
-				if (!credentials?.email || !credentials?.password) {
+				if (!credentials?.username || !credentials?.password) {
 					return null;
 				}
 
-				const email = credentials.email as string;
+				const username = credentials.username as string;
 				const password = credentials.password as string;
 
-				const user = await db.select().from(users).where(eq(users.email, email)).limit(1);
+				const user = await db.select().from(users).where(eq(users.username, username)).limit(1);
 
 				if (user.length === 0) {
 					return null;
@@ -35,7 +35,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
 				return {
 					id: user[0].id.toString(),
-					email: user[0].email,
+					email: user[0].email ?? undefined,
 					name: user[0].name,
 					role: user[0].role,
 				};

@@ -1,17 +1,17 @@
 "use server";
 
-import { count, desc, eq } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { problems, testcases, users, type ProblemType } from "@/db/schema";
+import { type ProblemType, problems, testcases, users } from "@/db/schema";
+import { getRedisClient } from "@/lib/redis";
 import {
-	uploadFile,
 	deleteAllProblemFiles,
 	generateCheckerPath,
 	generateValidatorPath,
+	uploadFile,
 } from "@/lib/storage";
-import { getRedisClient } from "@/lib/redis";
 
 // Check if user is admin
 async function requireAdmin() {
@@ -52,23 +52,59 @@ export async function getAdminProblems(options?: { page?: number; limit?: number
 }
 
 export async function createProblem(data: {
+	id?: number;
 	title: string;
 	content: string;
 	timeLimit: number;
 	memoryLimit: number;
+	maxScore: number;
 	isPublic: boolean;
 	problemType?: ProblemType;
+	allowedLanguages?: string[] | null;
+	referenceCodeFile?: File | null;
 }) {
 	const user = await requireAdmin();
+
+	// ID가 지정된 경우 해당 ID가 이미 존재하는지 확인
+	if (data.id !== undefined) {
+		const existing = await db.select().from(problems).where(eq(problems.id, data.id)).limit(1);
+		if (existing.length > 0) {
+			throw new Error(`문제 ID ${data.id}는 이미 사용 중입니다.`);
+		}
+	}
+
+	// ANIGMA 문제이고 reference code 파일이 있으면 업로드
+	let referenceCodePath: string | null = null;
+	if (data.problemType === "anigma" && data.referenceCodeFile) {
+		const buffer = Buffer.from(await data.referenceCodeFile.arrayBuffer());
+		const tempId = data.id || Date.now();
+		referenceCodePath = `problems/${tempId}/reference_code.zip`;
+		await uploadFile(referenceCodePath, buffer, "application/zip");
+	}
 
 	const [newProblem] = await db
 		.insert(problems)
 		.values({
-			...data,
+			...(data.id !== undefined && { id: data.id }),
+			title: data.title,
+			content: data.content,
+			timeLimit: data.timeLimit,
+			memoryLimit: data.memoryLimit,
+			maxScore: data.maxScore,
+			isPublic: data.isPublic,
 			problemType: data.problemType ?? "icpc",
+			allowedLanguages: data.allowedLanguages ?? null,
+			referenceCodePath: referenceCodePath,
 			authorId: parseInt(user.id, 10),
 		})
 		.returning();
+
+	// 커스텀 ID를 사용한 경우 sequence를 업데이트하여 향후 충돌 방지
+	if (data.id !== undefined) {
+		await db.execute(
+			sql`SELECT setval(pg_get_serial_sequence('problems', 'id'), GREATEST(${data.id}, (SELECT COALESCE(MAX(id), 0) FROM problems)))`
+		);
+	}
 
 	revalidatePath("/admin/problems");
 	revalidatePath("/problems");
@@ -83,20 +119,35 @@ export async function updateProblem(
 		content?: string;
 		timeLimit?: number;
 		memoryLimit?: number;
+		maxScore?: number;
 		isPublic?: boolean;
 		problemType?: ProblemType;
 		checkerPath?: string | null;
 		validatorPath?: string | null;
+		allowedLanguages?: string[] | null;
+		referenceCodeFile?: File | null;
 	}
 ) {
 	await requireAdmin();
 
+	// ANIGMA 문제이고 reference code 파일이 있으면 업로드
+	let referenceCodePath: string | undefined = undefined;
+	if (data.problemType === "anigma" && data.referenceCodeFile) {
+		const buffer = Buffer.from(await data.referenceCodeFile.arrayBuffer());
+		referenceCodePath = `problems/${id}/reference_code.zip`;
+		await uploadFile(referenceCodePath, buffer, "application/zip");
+	}
+
+	const updateData: any = { ...data, updatedAt: new Date() };
+	if (referenceCodePath !== undefined) {
+		updateData.referenceCodePath = referenceCodePath;
+	}
+	// referenceCodeFile은 DB 필드가 아니므로 제거
+	delete updateData.referenceCodeFile;
+
 	const [updatedProblem] = await db
 		.update(problems)
-		.set({
-			...data,
-			updatedAt: new Date(),
-		})
+		.set(updateData)
 		.where(eq(problems.id, id))
 		.returning();
 
@@ -187,6 +238,7 @@ export async function getAdminUsers(options?: { page?: number; limit?: number })
 		db
 			.select({
 				id: users.id,
+				username: users.username,
 				email: users.email,
 				name: users.name,
 				role: users.role,
@@ -229,11 +281,7 @@ export async function uploadChecker(
 	await requireAdmin();
 
 	// Verify problem exists
-	const [problem] = await db
-		.select()
-		.from(problems)
-		.where(eq(problems.id, problemId))
-		.limit(1);
+	const [problem] = await db.select().from(problems).where(eq(problems.id, problemId)).limit(1);
 
 	if (!problem) {
 		throw new Error("Problem not found");
@@ -271,11 +319,7 @@ export async function uploadValidator(
 	await requireAdmin();
 
 	// Verify problem exists
-	const [problem] = await db
-		.select()
-		.from(problems)
-		.where(eq(problems.id, problemId))
-		.limit(1);
+	const [problem] = await db.select().from(problems).where(eq(problems.id, problemId)).limit(1);
 
 	if (!problem) {
 		throw new Error("Problem not found");
@@ -309,11 +353,7 @@ export async function validateTestcases(problemId: number) {
 	await requireAdmin();
 
 	// Get problem with validator path
-	const [problem] = await db
-		.select()
-		.from(problems)
-		.where(eq(problems.id, problemId))
-		.limit(1);
+	const [problem] = await db.select().from(problems).where(eq(problems.id, problemId)).limit(1);
 
 	if (!problem) {
 		throw new Error("Problem not found");

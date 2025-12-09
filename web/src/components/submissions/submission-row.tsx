@@ -48,12 +48,14 @@ export function SubmissionRow({ submission, showDetail = true }: SubmissionRowPr
 					{submission.problemTitle}
 				</Link>
 			</TableCell>
-			<TableCell>
-				<SubmissionStatus
-					submissionId={submission.id}
-					initialVerdict={submission.verdict}
-				/>
-			</TableCell>
+		<TableCell>
+			<SubmissionStatus
+				submissionId={submission.id}
+				initialVerdict={submission.verdict}
+				score={submission.score ?? undefined}
+				maxScore={submission.maxScore}
+			/>
+		</TableCell>
 			<TableCell className="text-muted-foreground">
 				{LANGUAGE_LABELS[submission.language] || submission.language}
 			</TableCell>

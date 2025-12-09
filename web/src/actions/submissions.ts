@@ -31,12 +31,14 @@ export async function getSubmissions(options?: {
 				id: submissions.id,
 				problemId: submissions.problemId,
 				problemTitle: problems.title,
+				maxScore: problems.maxScore,
 				userId: submissions.userId,
 				userName: users.name,
 				language: submissions.language,
 				verdict: submissions.verdict,
 				executionTime: submissions.executionTime,
 				memoryUsed: submissions.memoryUsed,
+				score: submissions.score,
 				createdAt: submissions.createdAt,
 			})
 			.from(submissions)
@@ -61,6 +63,8 @@ export async function getSubmissionById(id: number) {
 			id: submissions.id,
 			problemId: submissions.problemId,
 			problemTitle: problems.title,
+			problemType: problems.problemType,
+			maxScore: problems.maxScore,
 			userId: submissions.userId,
 			userName: users.name,
 			code: submissions.code,
@@ -70,6 +74,7 @@ export async function getSubmissionById(id: number) {
 			memoryUsed: submissions.memoryUsed,
 			errorMessage: submissions.errorMessage,
 			score: submissions.score,
+			editDistance: submissions.editDistance,
 			createdAt: submissions.createdAt,
 		})
 		.from(submissions)
@@ -143,6 +148,7 @@ export async function submitCode(data: {
 			language: data.language,
 			timeLimit: problem[0].timeLimit,
 			memoryLimit: problem[0].memoryLimit,
+			maxScore: problem[0].maxScore,
 			testcases: problemTestcases.map((tc) => ({
 				id: tc.id,
 				inputPath: tc.inputPath,
@@ -170,6 +176,7 @@ async function pushJudgeJob(job: {
 	language: string;
 	timeLimit: number;
 	memoryLimit: number;
+	maxScore: number;
 	testcases: { id: number; inputPath: string; outputPath: string }[];
 	problemType: string;
 	checkerPath: string | null;
@@ -189,6 +196,7 @@ async function pushJudgeJob(job: {
 		ignore_time_limit_bonus: false,
 		memory_limit: job.memoryLimit,
 		ignore_memory_limit_bonus: false,
+		max_score: job.maxScore,
 		testcases: job.testcases.map((tc) => ({
 			id: tc.id,
 			input_path: tc.inputPath,
