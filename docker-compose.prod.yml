@@ -1,0 +1,13 @@
+# 프로덕션용 override 설정
+# 사용법: docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d
+
+services:
+  postgres:
+    ports: !reset []  # 포트 노출 제거
+
+  redis:
+    ports: !reset []  # 포트 노출 제거
+
+  minio:
+    ports: !reset []  # 포트 노출 제거
+
