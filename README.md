@@ -74,24 +74,18 @@ ana-online-judge/
 
 ### 개발 환경 설정
 
-1. **백엔드 인프라 실행**
-
-```bash
-docker compose up -d
-```
-
-2. **환경 변수 설정**
+1. **환경 변수 설정**
 
 ```bash
 cp web/.env.example web/.env
 cp judge/.env.example judge/.env
 ```
 
-3. **데이터베이스 마이그레이션**
+2. **백엔드 인프라 실행 및 데이터베이스 마이그레이션**
 
 ```bash
-cd web
-pnpm db:push
+make dev-up
+make dev-db-push
 ```
 
 4. **웹 서버 실행**
@@ -100,6 +94,13 @@ pnpm db:push
 cd web
 pnpm install
 pnpm dev
+```
+
+### 프로덕션 배포
+
+```bash
+make prod-up
+make prod-db-push
 ```
 
 ## 라이선스
