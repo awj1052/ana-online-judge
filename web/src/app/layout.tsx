@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
+import "pretendard/dist/web/variable/pretendardvariable.css";
 import "./globals.css";
 import { auth } from "@/auth";
 import { Footer } from "@/components/layout/footer";
@@ -8,13 +9,10 @@ import { ThemeProvider } from "@/components/layout/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = Geist({
-	variable: "--font-geist-sans",
-	subsets: ["latin"],
-});
+// Pretendard는 CSS로 로드 (--font-pretendard 변수 자동 생성됨)
 
 const geistMono = Geist_Mono({
-	variable: "--font-geist-mono",
+	variable: "--font-mono",
 	subsets: ["latin"],
 });
 
@@ -35,9 +33,7 @@ export default async function RootLayout({
 
 	return (
 		<html lang="ko" suppressHydrationWarning>
-			<body
-				className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased min-h-screen flex flex-col`}
-			>
+			<body className={`${geistMono.variable} font-sans antialiased min-h-screen flex flex-col`}>
 				<SessionProvider>
 					<ThemeProvider
 						attribute="class"
