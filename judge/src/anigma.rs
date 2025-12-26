@@ -8,6 +8,19 @@ use crate::storage::StorageClient;
 use crate::sandbox::get_config;
 use crate::utils::extract_zip;
 
+/// Task 1: 사용자가 input 파일을 제출하여 A와 B의 출력이 다른지 확인
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AnigmaTask1JudgeJob {
+    pub submission_id: i64,
+    pub problem_id: i64,
+    pub input_path: String,           // 사용자가 제출한 input 파일 (MinIO 경로)
+    pub reference_code_path: String,  // 문제 제공 코드 A (ZIP)
+    pub solution_code_path: String,   // 정답 코드 B (ZIP)
+    pub time_limit: u32,
+    pub memory_limit: u32,
+}
+
+/// Task 2: 사용자가 ZIP 파일을 제출하여 테스트케이스 통과 여부 확인
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnigmaJudgeJob {
     pub submission_id: i64,
@@ -113,8 +126,8 @@ pub async fn process_anigma_job(
     // 4. 각 테스트케이스 실행
     let mut testcase_results = Vec::new();
     let mut overall_verdict = Verdict::Accepted;
-    let mut max_time_ms = 0u32;
-    let mut max_memory_kb = 0u32;
+    let mut max_time_ms: u32 = 0;
+    let mut max_memory_kb: u32 = 0;
     
     for tc in &job.testcases {
         let input_data = storage.download(&tc.input_path).await?;
@@ -270,4 +283,186 @@ fn read_all_source_files(dir: &Path) -> Result<String> {
     }
     
     Ok(code)
+}
+
+/// Helper to extract ZIP and run make build
+async fn extract_and_build(
+    storage: &StorageClient,
+    zip_path: &str,
+    target_dir: &Path,
+) -> Result<()> {
+    // ZIP 다운로드 및 압축 해제
+    let zip_data = storage.download(zip_path).await?;
+    let cursor = std::io::Cursor::new(zip_data);
+    extract_zip(cursor, target_dir)?;
+    
+    // Makefile 존재 여부 확인
+    let makefile_path = target_dir.join("Makefile");
+    if !makefile_path.exists() && !target_dir.join("makefile").exists() {
+        anyhow::bail!("Makefile not found in {}", zip_path);
+    }
+    
+    // make build 실행
+    let config = get_config();
+    let build_spec = ExecutionSpec::new(target_dir)
+        .with_command(vec!["make".to_string(), "build".to_string()])
+        .with_limits(ExecutionLimits {
+            time_ms: config.compile_time_limit_ms,
+            memory_mb: config.compile_memory_limit_mb,
+        })
+        .with_copy_out_dir(target_dir);
+        
+    let build_result = execute_sandboxed(&build_spec).await?;
+    
+    if !build_result.is_success() {
+        anyhow::bail!(
+            "Build failed: exit={:?}, stderr={}",
+            build_result.status,
+            build_result.stderr
+        );
+    }
+    
+    Ok(())
+}
+
+/// Task 1 채점: A와 B의 출력이 달라야 정답
+pub async fn process_anigma_task1_job(
+    job: &AnigmaTask1JudgeJob,
+    storage: &StorageClient,
+) -> Result<JudgeResult> {
+    const TASK1_SCORE: i64 = 30;
+    
+    // 1. 사용자가 제출한 input 파일 다운로드
+    let input_data = storage.download(&job.input_path).await?;
+    
+    // 2. 코드 A (문제 제공 코드) ZIP 다운로드, 압축 해제, make build
+    let code_a_dir = tempfile::tempdir()?;
+    if let Err(e) = extract_and_build(storage, &job.reference_code_path, code_a_dir.path()).await {
+        return Ok(JudgeResult {
+            submission_id: job.submission_id,
+            verdict: Verdict::SystemError.to_string(),
+            score: 0,
+            execution_time: None,
+            memory_used: None,
+            testcase_results: vec![],
+            error_message: Some(format!("Code A build failed: {}", e)),
+        });
+    }
+    
+    // 3. 코드 B (정답 코드) ZIP 다운로드, 압축 해제, make build
+    let code_b_dir = tempfile::tempdir()?;
+    if let Err(e) = extract_and_build(storage, &job.solution_code_path, code_b_dir.path()).await {
+        return Ok(JudgeResult {
+            submission_id: job.submission_id,
+            verdict: Verdict::SystemError.to_string(),
+            score: 0,
+            execution_time: None,
+            memory_used: None,
+            testcase_results: vec![],
+            error_message: Some(format!("Code B build failed: {}", e)),
+        });
+    }
+    
+    // 4. input 파일을 각 디렉토리에 복사
+    let input_filename = "input.bin";
+    std::fs::write(code_a_dir.path().join(input_filename), &input_data)?;
+    std::fs::write(code_b_dir.path().join(input_filename), &input_data)?;
+    
+    // 5. A: make run INPUT=input.bin
+    let input_arg = format!("INPUT={}", input_filename);
+    let run_spec_a = ExecutionSpec::new(code_a_dir.path())
+        .with_command(vec!["make".to_string(), "run".to_string(), input_arg.clone()])
+        .with_limits(ExecutionLimits {
+            time_ms: job.time_limit,
+            memory_mb: job.memory_limit,
+        });
+    
+    let output_a = execute_sandboxed(&run_spec_a).await?;
+    
+    tracing::info!(
+        "ANIGMA Task1 Code A result: status={:?}, stdout_len={}, stderr_len={}",
+        output_a.status,
+        output_a.stdout.len(),
+        output_a.stderr.len()
+    );
+    
+    // A가 실행 실패하면 시스템 에러
+    if !matches!(output_a.status, ExecutionStatus::Exited(0)) {
+        return Ok(JudgeResult {
+            submission_id: job.submission_id,
+            verdict: Verdict::SystemError.to_string(),
+            score: 0,
+            execution_time: None,
+            memory_used: None,
+            testcase_results: vec![],
+            error_message: Some(format!(
+                "Code A execution failed: status={:?}, stderr={}",
+                output_a.status,
+                output_a.stderr.chars().take(500).collect::<String>()
+            )),
+        });
+    }
+    
+    // 6. B: make run INPUT=input.bin
+    let run_spec_b = ExecutionSpec::new(code_b_dir.path())
+        .with_command(vec!["make".to_string(), "run".to_string(), input_arg])
+        .with_limits(ExecutionLimits {
+            time_ms: job.time_limit,
+            memory_mb: job.memory_limit,
+        });
+    
+    let output_b = execute_sandboxed(&run_spec_b).await?;
+    
+    tracing::info!(
+        "ANIGMA Task1 Code B result: status={:?}, stdout_len={}, stderr_len={}",
+        output_b.status,
+        output_b.stdout.len(),
+        output_b.stderr.len()
+    );
+    
+    // B가 실행 실패하면 시스템 에러
+    if !matches!(output_b.status, ExecutionStatus::Exited(0)) {
+        return Ok(JudgeResult {
+            submission_id: job.submission_id,
+            verdict: Verdict::SystemError.to_string(),
+            score: 0,
+            execution_time: None,
+            memory_used: None,
+            testcase_results: vec![],
+            error_message: Some(format!(
+                "Code B execution failed: status={:?}, stderr={}",
+                output_b.status,
+                output_b.stderr.chars().take(500).collect::<String>()
+            )),
+        });
+    }
+    
+    // 7. 출력 비교: 달라야 정답!
+    let is_different = output_a.stdout != output_b.stdout;
+    
+    let verdict = if is_different {
+        Verdict::Accepted
+    } else {
+        Verdict::WrongAnswer
+    };
+    
+    let max_time = output_a.time_ms.max(output_b.time_ms);
+    let max_memory = output_a.memory_kb.max(output_b.memory_kb);
+    
+    tracing::info!(
+        "ANIGMA Task1 completed: submission_id={}, is_different={}, verdict={}",
+        job.submission_id,
+        is_different,
+        verdict
+    );
+    
+    Ok(JudgeResult {
+        submission_id: job.submission_id,
+        verdict: verdict.to_string(),
+        score: if is_different { TASK1_SCORE } else { 0 },
+        execution_time: Some(max_time),
+        memory_used: Some(max_memory),
+        testcase_results: vec![],
+        error_message: None,
+    })
 }

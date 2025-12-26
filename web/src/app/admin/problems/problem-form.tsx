@@ -68,6 +68,7 @@ interface ProblemFormProps {
 		checkerPath: string | null;
 		validatorPath: string | null;
 		referenceCodePath: string | null;
+		solutionCodePath: string | null;
 		allowedLanguages: string[] | null;
 	};
 }
@@ -78,6 +79,9 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [content, setContent] = useState(problem?.content || DEFAULT_CONTENT);
 	const [problemType, setProblemType] = useState<ProblemType>(problem?.problemType || "icpc");
+	
+	// ANIGMA 문제일 경우 max_score 기본값 70, 그 외 100
+	const getDefaultMaxScore = (type: ProblemType) => type === "anigma" ? 70 : 100;
 	const [allowedLanguages, setAllowedLanguages] = useState<Language[]>(
 		problem?.allowedLanguages
 			? (problem.allowedLanguages.filter((lang): lang is Language =>
@@ -86,6 +90,10 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 			: []
 	);
 	const [referenceCodeFile, setReferenceCodeFile] = useState<File | null>(null);
+	const [solutionCodeFile, setSolutionCodeFile] = useState<File | null>(null);
+	const [maxScore, setMaxScore] = useState<number>(
+		problem?.maxScore || getDefaultMaxScore(problem?.problemType || "icpc")
+	);
 
 	const isEditing = !!problem;
 
@@ -110,9 +118,14 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 			allowedLanguages: allowedLanguages.length > 0 ? allowedLanguages : null,
 		};
 
-		// ANIGMA 문제이고 reference code 파일이 있으면 File 객체로 전달
-		if (problemType === "anigma" && referenceCodeFile) {
-			data.referenceCodeFile = referenceCodeFile;
+		// ANIGMA 문제이고 코드 파일이 있으면 File 객체로 전달
+		if (problemType === "anigma") {
+			if (referenceCodeFile) {
+				data.referenceCodeFile = referenceCodeFile;
+			}
+			if (solutionCodeFile) {
+				data.solutionCodeFile = solutionCodeFile;
+			}
 		}
 
 		try {
@@ -202,18 +215,31 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 								id="maxScore"
 								name="maxScore"
 								type="number"
-								defaultValue={problem?.maxScore || 100}
+								value={maxScore}
+								onChange={(e) => setMaxScore(parseInt(e.target.value, 10) || 0)}
 								min={1}
 								max={1000}
 								required
 								disabled={isSubmitting}
 							/>
+							{problemType === "anigma" && (
+								<p className="text-xs text-muted-foreground">
+									ANIGMA: 비대회 제출 70점, 대회 제출 50점 (max_score로 구분)
+								</p>
+							)}
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="problemType">문제 유형</Label>
 							<Select
 								value={problemType}
-								onValueChange={(value) => setProblemType(value as ProblemType)}
+								onValueChange={(value) => {
+									const newType = value as ProblemType;
+									setProblemType(newType);
+									// 문제 유형 변경 시 max_score 기본값도 변경 (편집 중이 아닌 새 문제 생성 시만)
+									if (!problem) {
+										setMaxScore(getDefaultMaxScore(newType));
+									}
+								}}
 								disabled={isSubmitting}
 							>
 								<SelectTrigger id="problemType">
@@ -244,33 +270,67 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 				{problemType === "anigma" && (
 					<div className="space-y-4">
 						<div className="p-4 border rounded-md bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900">
-							<p className="text-sm text-purple-900 dark:text-purple-100">
-								ANIGMA 문제입니다. 사용자는 ZIP 파일로 제출하며, 런타임 수정 점수와 편집 거리 보너스가 계산됩니다.
+							<p className="text-sm text-purple-900 dark:text-purple-100 font-medium mb-2">
+								ANIGMA 문제
+							</p>
+							<ul className="text-sm text-purple-800 dark:text-purple-200 list-disc list-inside space-y-1">
+								<li>Task 1 (30점): 사용자가 input 파일을 제출, A와 B의 출력이 달라야 정답</li>
+								<li>Task 2 (50~70점): 사용자가 ZIP 파일을 제출, 테스트케이스 통과</li>
+								<li>보너스 (최대 20점): 대회 제출 시 편집 거리 기반 동적 계산</li>
+							</ul>
+							<p className="text-xs text-purple-700 dark:text-purple-300 mt-2">
+								※ 비대회: max_score=70 (보너스 없음) / 대회: max_score=50 + 보너스 최대 20점
 							</p>
 						</div>
 						
-						<div className="space-y-2">
-							<Label htmlFor="referenceCode">원본 코드 (ZIP 파일)</Label>
-							<Input
-								id="referenceCode"
-								type="file"
-								accept=".zip"
-								onChange={(e) => {
-									if (e.target.files?.[0]) {
-										setReferenceCodeFile(e.target.files[0]);
-									}
-								}}
-								disabled={isSubmitting}
-								className="cursor-pointer"
-							/>
-							<p className="text-sm text-muted-foreground">
-								편집 거리 계산을 위한 원본 코드를 ZIP 파일로 업로드하세요. (선택사항)
-							</p>
-							{problem?.referenceCodePath && (
-								<p className="text-sm text-green-600 dark:text-green-400">
-									✓ 원본 코드가 설정되어 있습니다
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="space-y-2">
+								<Label htmlFor="referenceCode">문제 제공 코드 A (ZIP 파일)</Label>
+								<Input
+									id="referenceCode"
+									type="file"
+									accept=".zip"
+									onChange={(e) => {
+										if (e.target.files?.[0]) {
+											setReferenceCodeFile(e.target.files[0]);
+										}
+									}}
+									disabled={isSubmitting}
+									className="cursor-pointer"
+								/>
+								<p className="text-sm text-muted-foreground">
+									Task 1에서 A로 사용될 코드 (Makefile 포함 ZIP)
 								</p>
-							)}
+								{problem?.referenceCodePath && (
+									<p className="text-sm text-green-600 dark:text-green-400">
+										✓ 코드 A가 설정되어 있습니다
+									</p>
+								)}
+							</div>
+
+							<div className="space-y-2">
+								<Label htmlFor="solutionCode">정답 코드 B (ZIP 파일)</Label>
+								<Input
+									id="solutionCode"
+									type="file"
+									accept=".zip"
+									onChange={(e) => {
+										if (e.target.files?.[0]) {
+											setSolutionCodeFile(e.target.files[0]);
+										}
+									}}
+									disabled={isSubmitting}
+									className="cursor-pointer"
+								/>
+								<p className="text-sm text-muted-foreground">
+									Task 1에서 B로 사용될 정답 코드 (Makefile 포함 ZIP)
+								</p>
+								{problem?.solutionCodePath && (
+									<p className="text-sm text-green-600 dark:text-green-400">
+										✓ 코드 B가 설정되어 있습니다
+									</p>
+								)}
+							</div>
 						</div>
 					</div>
 				)}

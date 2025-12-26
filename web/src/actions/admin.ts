@@ -62,6 +62,7 @@ export async function createProblem(data: {
 	problemType?: ProblemType;
 	allowedLanguages?: string[] | null;
 	referenceCodeFile?: File | null;
+	solutionCodeFile?: File | null;
 }) {
 	const user = await requireAdmin();
 
@@ -73,13 +74,22 @@ export async function createProblem(data: {
 		}
 	}
 
-	// ANIGMA 문제이고 reference code 파일이 있으면 업로드
+	const tempId = data.id || Date.now();
+
+	// ANIGMA 문제: 코드 A (문제 제공 코드) 업로드
 	let referenceCodePath: string | null = null;
 	if (data.problemType === "anigma" && data.referenceCodeFile) {
 		const buffer = Buffer.from(await data.referenceCodeFile.arrayBuffer());
-		const tempId = data.id || Date.now();
 		referenceCodePath = `problems/${tempId}/reference_code.zip`;
 		await uploadFile(referenceCodePath, buffer, "application/zip");
+	}
+
+	// ANIGMA 문제: 코드 B (정답 코드) 업로드
+	let solutionCodePath: string | null = null;
+	if (data.problemType === "anigma" && data.solutionCodeFile) {
+		const buffer = Buffer.from(await data.solutionCodeFile.arrayBuffer());
+		solutionCodePath = `problems/${tempId}/solution_code.zip`;
+		await uploadFile(solutionCodePath, buffer, "application/zip");
 	}
 
 	const [newProblem] = await db
@@ -95,6 +105,7 @@ export async function createProblem(data: {
 			problemType: data.problemType ?? "icpc",
 			allowedLanguages: data.allowedLanguages ?? null,
 			referenceCodePath: referenceCodePath,
+			solutionCodePath: solutionCodePath,
 			authorId: parseInt(user.id, 10),
 		})
 		.returning();
@@ -126,11 +137,12 @@ export async function updateProblem(
 		validatorPath?: string | null;
 		allowedLanguages?: string[] | null;
 		referenceCodeFile?: File | null;
+		solutionCodeFile?: File | null;
 	}
 ) {
 	await requireAdmin();
 
-	// ANIGMA 문제이고 reference code 파일이 있으면 업로드
+	// ANIGMA 문제: 코드 A (문제 제공 코드) 업로드
 	let referenceCodePath: string | undefined = undefined;
 	if (data.problemType === "anigma" && data.referenceCodeFile) {
 		const buffer = Buffer.from(await data.referenceCodeFile.arrayBuffer());
@@ -138,12 +150,24 @@ export async function updateProblem(
 		await uploadFile(referenceCodePath, buffer, "application/zip");
 	}
 
+	// ANIGMA 문제: 코드 B (정답 코드) 업로드
+	let solutionCodePath: string | undefined = undefined;
+	if (data.problemType === "anigma" && data.solutionCodeFile) {
+		const buffer = Buffer.from(await data.solutionCodeFile.arrayBuffer());
+		solutionCodePath = `problems/${id}/solution_code.zip`;
+		await uploadFile(solutionCodePath, buffer, "application/zip");
+	}
+
 	const updateData: any = { ...data, updatedAt: new Date() };
 	if (referenceCodePath !== undefined) {
 		updateData.referenceCodePath = referenceCodePath;
 	}
-	// referenceCodeFile은 DB 필드가 아니므로 제거
+	if (solutionCodePath !== undefined) {
+		updateData.solutionCodePath = solutionCodePath;
+	}
+	// File 객체는 DB 필드가 아니므로 제거
 	delete updateData.referenceCodeFile;
+	delete updateData.solutionCodeFile;
 
 	const [updatedProblem] = await db
 		.update(problems)

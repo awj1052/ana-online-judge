@@ -66,7 +66,8 @@ export const problems = pgTable("problems", {
 	checkerPath: text("checker_path"), // Special judge checker path in MinIO
 	validatorPath: text("validator_path"), // Validator path in MinIO (optional)
 	inputMethod: inputMethodEnum("input_method").default("stdin"), // Anigma input method
-	referenceCodePath: text("reference_code_path"), // Anigma reference code for edit distance
+	referenceCodePath: text("reference_code_path"), // Anigma: 문제 제공 코드 A (ZIP)
+	solutionCodePath: text("solution_code_path"), // Anigma: 정답 코드 B (ZIP)
 	allowedLanguages: text("allowed_languages").array(), // NULL이면 모든 언어 허용
 	authorId: integer("author_id").references(() => users.id),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -105,11 +106,13 @@ export const submissions = pgTable("submissions", {
 	score: integer("score").default(0),
 
 	// Anigma extensions
-	zipPath: text("zip_path"), // MinIO path for zip file
+	zipPath: text("zip_path"), // MinIO path for zip file (Task 2)
 	isMultifile: boolean("is_multifile").default(false),
 	passedTestcases: integer("passed_testcases").default(0),
 	totalTestcases: integer("total_testcases").default(0),
-	editDistance: integer("edit_distance"), // Levenshtein distance from reference code (Anigma only)
+	editDistance: integer("edit_distance"), // Levenshtein distance from reference code (Anigma Task 2 only)
+	anigmaTaskType: integer("anigma_task_type"), // 1 (input 제출) or 2 (ZIP 제출), null for non-anigma
+	anigmaInputPath: text("anigma_input_path"), // MinIO path for user input file (Task 1)
 
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 });

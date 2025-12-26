@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import { submitAnigmaCode } from "@/actions/anigma-submissions";
+import { submitAnigmaCode, submitAnigmaTask1 } from "@/actions/anigma-submissions";
 import { submitCode } from "@/actions/submissions";
 import { AnigmaSubmit } from "@/components/problems/anigma-submit";
+import { AnigmaTask1Submit } from "@/components/problems/anigma-task1-submit";
 import { CodeSubmit } from "@/components/problems/code-submit";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Language, ProblemType } from "@/db/schema";
 
 interface ProblemSubmitSectionProps {
@@ -24,6 +26,8 @@ export function ProblemSubmitSection({
 }: ProblemSubmitSectionProps) {
 	const { data: session, status } = useSession();
 	const router = useRouter();
+	const [isSubmittingTask1, setIsSubmittingTask1] = useState(false);
+	const [isSubmittingTask2, setIsSubmittingTask2] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -56,13 +60,43 @@ export function ProblemSubmitSection({
 		}
 	};
 
-	const handleAnigmaSubmit = async (file: File) => {
+	// ANIGMA Task 1: input 파일 제출
+	const handleAnigmaTask1Submit = async (file: File) => {
 		if (!session?.user) {
 			router.push("/login");
 			return;
 		}
 
-		setIsSubmitting(true);
+		setIsSubmittingTask1(true);
+		setError(null);
+
+		try {
+			const result = await submitAnigmaTask1({
+				problemId,
+				inputFile: file,
+				userId: parseInt(session.user.id, 10),
+			});
+
+			if (result.error) {
+				setError(result.error);
+			} else if (result.submissionId) {
+				router.push(`/submissions/${result.submissionId}`);
+			}
+		} catch {
+			setError("제출 중 오류가 발생했습니다.");
+		} finally {
+			setIsSubmittingTask1(false);
+		}
+	};
+
+	// ANIGMA Task 2: ZIP 파일 제출
+	const handleAnigmaTask2Submit = async (file: File) => {
+		if (!session?.user) {
+			router.push("/login");
+			return;
+		}
+
+		setIsSubmittingTask2(true);
 		setError(null);
 
 		try {
@@ -80,7 +114,7 @@ export function ProblemSubmitSection({
 		} catch {
 			setError("제출 중 오류가 발생했습니다.");
 		} finally {
-			setIsSubmitting(false);
+			setIsSubmittingTask2(false);
 		}
 	};
 
@@ -101,21 +135,71 @@ export function ProblemSubmitSection({
 		);
 	}
 
+	// ANIGMA 문제: Task 1과 Task 2 분리 표시
+	if (problemType === "anigma") {
+		return (
+			<div className="space-y-6">
+				{error && (
+					<div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">{error}</div>
+				)}
+
+				{/* Task 1: 입력 생성 */}
+				<Card className="border-purple-200 dark:border-purple-900">
+					<CardHeader className="pb-3">
+						<CardTitle className="text-lg flex items-center gap-2">
+							<span className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded text-sm font-medium">
+								Task 1
+							</span>
+							입력 생성 (20점)
+						</CardTitle>
+						<CardDescription>
+							A와 B의 출력이 다른 입력 파일을 찾아 제출하세요.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<AnigmaTask1Submit
+							onSubmit={handleAnigmaTask1Submit}
+							isSubmitting={isSubmittingTask1}
+						/>
+					</CardContent>
+				</Card>
+
+				{/* Task 2: 코드 수정 */}
+				<Card className="border-purple-200 dark:border-purple-900">
+					<CardHeader className="pb-3">
+						<CardTitle className="text-lg flex items-center gap-2">
+							<span className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded text-sm font-medium">
+								Task 2
+							</span>
+							코드 수정 (80점)
+						</CardTitle>
+						<CardDescription>
+							테스트케이스를 통과하도록 코드를 수정하여 ZIP 파일로 제출하세요.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<AnigmaSubmit
+							onSubmit={handleAnigmaTask2Submit}
+							isSubmitting={isSubmittingTask2}
+						/>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
+
+	// 일반 문제: 기존 코드 제출
 	return (
 		<div className="space-y-4">
 			{error && (
 				<div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">{error}</div>
 			)}
 
-			{problemType === "anigma" ? (
-				<AnigmaSubmit onSubmit={handleAnigmaSubmit} isSubmitting={isSubmitting} />
-			) : (
-				<CodeSubmit
-					onSubmit={handleSubmit}
-					isSubmitting={isSubmitting}
-					allowedLanguages={allowedLanguages}
-				/>
-			)}
+			<CodeSubmit
+				onSubmit={handleSubmit}
+				isSubmitting={isSubmitting}
+				allowedLanguages={allowedLanguages}
+			/>
 		</div>
 	);
 }

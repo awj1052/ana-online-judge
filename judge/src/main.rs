@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use storage::StorageClient;
 use tracing::{error, info};
 
-use crate::anigma::{process_anigma_job, AnigmaJudgeJob, AnigmaJudgeResult};
+use crate::anigma::{process_anigma_job, process_anigma_task1_job, AnigmaJudgeJob, AnigmaJudgeResult, AnigmaTask1JudgeJob};
 use crate::checker::{CheckerManager, Verdict};
 use crate::judger::{process_judge_job, JudgeJob, JudgeResult};
 use crate::playground::{process_playground_job, PlaygroundJob, PlaygroundResult};
@@ -33,9 +33,12 @@ pub enum WorkerJob {
     /// Validate testcases
     #[serde(rename = "validate")]
     Validate(ValidateJob),
-    /// Anigma Judge Job
+    /// Anigma Task 2 Judge Job (ZIP 제출)
     #[serde(rename = "anigma")]
     Anigma(AnigmaJudgeJob),
+    /// Anigma Task 1 Judge Job (input 파일 제출)
+    #[serde(rename = "anigma_task1")]
+    AnigmaTask1(AnigmaTask1JudgeJob),
     /// Playground execution job
     #[serde(rename = "playground")]
     Playground(PlaygroundJob),
@@ -131,7 +134,7 @@ async fn main() -> Result<()> {
             }
             WorkerJob::Anigma(job) => {
                 info!(
-                    "Received anigma job: submission_id={}, problem_id={}",
+                    "Received anigma task2 job: submission_id={}, problem_id={}",
                     job.submission_id, job.problem_id
                 );
 
@@ -148,8 +151,31 @@ async fn main() -> Result<()> {
                 }
 
                 info!(
-                    "Anigma job completed: submission_id={}, verdict={}",
+                    "Anigma task2 job completed: submission_id={}, verdict={}",
                     result.base.submission_id, result.base.verdict
+                );
+            }
+            WorkerJob::AnigmaTask1(job) => {
+                info!(
+                    "Received anigma task1 job: submission_id={}, problem_id={}",
+                    job.submission_id, job.problem_id
+                );
+
+                let result = match process_anigma_task1_job(&job, &storage).await {
+                    Ok(result) => result,
+                    Err(e) => {
+                        error!("Failed to process anigma task1 job {}: {}", job.submission_id, e);
+                        JudgeResult::system_error(job.submission_id, format!("{:#}", e))
+                    }
+                };
+                
+                if let Err(e) = redis.store_judge_result(&result).await {
+                    error!("Failed to store anigma task1 result: {}", e);
+                }
+
+                info!(
+                    "Anigma task1 job completed: submission_id={}, verdict={}",
+                    result.submission_id, result.verdict
                 );
             }
             WorkerJob::Playground(job) => {

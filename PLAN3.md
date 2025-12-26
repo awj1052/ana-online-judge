@@ -10,7 +10,7 @@
 
 ### 1.1 목표
 1. **다중 파일 컴파일 지원** - Anigma 문제 형식 (Makefile 기반)
-2. **Anigma 점수 계산 시스템** - 런타임 에러 해결, TC 통과, 편집 거리 기반 점수화
+2. **Anigma 점수 계산 시스템** - Task1 (30점) + Task2 (50~70점) + 보너스 (최대 20점, 대회 시)
 3. **웹 IDE 테스트 환경** - 대회 참가자를 위한 온라인 코딩 환경
 
 ### 1.2 현재 시스템 한계
@@ -275,139 +275,160 @@ pub fn extract_zip<R: Read + Seek>(data: R, dest: &Path) -> Result<()> {
 
 Anigma 문제는 단순 정답/오답이 아닌 **점수 기반** 채점을 사용합니다.
 
-| 항목 | 점수 | 설명 |
+| Task | 점수 | 설명 |
 |------|------|------|
-| 런타임 에러 | 0점 | 컴파일 실패 또는 모든 테스트케이스에서 런타임 에러 |
-| 런타임 에러 해결 | 40점 | 컴파일 성공 + 최소 1개 테스트케이스 정상 실행 (WA 포함) |
-| 모든 테스트케이스 통과 | 40점 | 전체 테스트케이스 Accepted |
-| 최소 편집 거리 가산점 | 최대 20점 | 원본 코드와의 편집 거리가 낮을수록 높은 점수 |
+| Task 1 | 30점 (고정) | 사용자가 input 파일 제출, A와 B의 출력이 달라야 정답 |
+| Task 2 | 50~70점 | 사용자가 ZIP 파일 제출, 모든 테스트케이스 통과 시 max_score 점수 |
+| 보너스 | 최대 20점 | 대회 제출 시에만, 편집 거리 기반 동적 계산 |
 | **총점** | **최대 100점** | |
 
-#### 2.4.2 점수 계산 로직
+#### 2.4.2 대회 vs 비대회 제출
+
+| 제출 유형 | max_score 값 | Task 2 점수 | 보너스 |
+|----------|-------------|-------------|--------|
+| **비대회 제출** | 70 | 정답 시 70점 | 0점 (계산 안함) |
+| **대회 제출** | 50 | 정답 시 50점 | 동적 계산 (최대 20점) |
+
+- 대회 여부는 `max_score` 값으로 판단 (adhoc 변수 추가 없음)
+- 대회 기능 구현 시 web에서 대회 제출 여부에 따라 max_score를 50 또는 70으로 설정
+- 관리자 페이지에서 ANIGMA 문제 생성 시 max_score 기본값은 70 (비대회용)
+
+#### 2.4.3 보너스 점수 수식 (대회 제출 시에만 적용)
+
+$$S_{user} = \lfloor B \times \left(\frac{R_{max} - R_{user}}{R_{max} - R_{min}}\right)^{k} \rfloor$$
+
+- $B$ : 최대 보너스 점수 ($B = 20$)
+- $R_{user}$ : 해당 사용자의 편집 거리 (Levenshtein distance)
+- $R_{max}$ : 해당 대회에서 꼴등 편집 거리 (가장 많이 수정한 사람)
+- $R_{min}$ : 해당 대회에서 1등 편집 거리 (가장 적게 수정한 사람)
+- $k$ : 가중치 계수 ($k = 1.5$ 권장)
+  - $k > 1$ : 상위권일수록 점수 하락폭이 가파르고 하위권은 완만해짐
+
+**예시** ($B=20$, $k=1.5$, $R_{max}=1000$, $R_{min}=50$):
+| 편집 거리 | 계산 | 보너스 점수 |
+|----------|------|-------------|
+| 50 (1등) | $20 \times (1.0)^{1.5}$ | **20점** |
+| 200 | $20 \times (0.84)^{1.5}$ | **15점** |
+| 500 | $20 \times (0.53)^{1.5}$ | **7점** |
+| 800 | $20 \times (0.21)^{1.5}$ | **1점** |
+| 1000 (꼴등) | $20 \times (0.0)^{1.5}$ | **0점** |
+
+> **실시간 반영**: 보너스 점수는 대회 중에도 새 정답 제출이 있을 때마다 동적으로 재계산되어 실시간 반영됩니다.
+
+#### 2.4.4 현재 구현된 채점 로직
+
+현재 구현은 단순 All-or-Nothing 방식입니다:
+- **Task 1**: 정답 시 30점, 오답 시 0점
+- **Task 2**: 정답 시 max_score (70 또는 50), 오답 시 0점
+
+편집 거리는 채점 시 계산되어 DB에 저장되며, 보너스 점수는 대회 종료 후 별도로 계산됩니다.
 
 ```rust
-// judge/src/anigma/scoring.rs
+// judge/src/anigma.rs - Task 1 채점
+const TASK1_SCORE: i64 = 30;
 
-/// Anigma 점수 계산 결과
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AnigmaScore {
-    /// 런타임 에러 해결 점수 (0 또는 40)
-    pub runtime_fix_score: u32,
-    /// 테스트케이스 통과 점수 (0 또는 40)
-    pub testcase_score: u32,
-    /// 최소 편집 거리 가산점 (0~20)
-    pub edit_distance_bonus: u32,
-    /// 총점
-    pub total_score: u32,
-    /// 편집 거리 (디버깅용)
-    pub edit_distance: u32,
-    /// 통과한 테스트케이스 수
-    pub passed_testcases: u32,
-    /// 전체 테스트케이스 수
-    pub total_testcases: u32,
-}
+// Task 2 채점
+let score = match overall_verdict {
+    Verdict::Accepted => job.max_score,  // 70 (비대회) 또는 50 (대회)
+    _ => 0,
+};
+```
 
-/// 채점 상태
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum JudgeStatus {
-    /// 컴파일 에러 또는 모든 TC에서 런타임 에러
-    RuntimeError,
-    /// 컴파일 성공, 일부 실행됨 (WA 포함)
-    RuntimeFixed,
-    /// 모든 테스트케이스 통과
-    AllPassed,
-}
+#### 2.4.5 실시간 보너스 점수 계산 (대회 중)
 
-pub fn calculate_anigma_score(
-    status: JudgeStatus,
-    submitted_code: &str,
-    reference_code: &str,
-    passed_testcases: u32,
-    total_testcases: u32,
-) -> AnigmaScore {
-    // 1. 런타임 에러 해결 점수
-    let runtime_fix_score = match status {
-        JudgeStatus::RuntimeError => 0,
-        JudgeStatus::RuntimeFixed | JudgeStatus::AllPassed => 40,
-    };
-    
-    // 2. 테스트케이스 통과 점수
-    let testcase_score = match status {
-        JudgeStatus::AllPassed => 40,
-        _ => 0,
-    };
-    
-    // 3. 최소 편집 거리 가산점 (모든 TC 통과 시에만)
-    let edit_distance = levenshtein_distance(submitted_code, reference_code);
-    let edit_distance_bonus = if status == JudgeStatus::AllPassed {
-        calculate_edit_distance_bonus(edit_distance, reference_code.len())
-    } else {
-        0
-    };
-    
-    let total_score = runtime_fix_score + testcase_score + edit_distance_bonus;
-    
-    AnigmaScore {
-        runtime_fix_score,
-        testcase_score,
-        edit_distance_bonus,
-        total_score,
-        edit_distance,
-        passed_testcases,
-        total_testcases,
-    }
-}
+대회 중에 새로운 정답 제출이 있을 때마다 해당 대회의 모든 정답 제출자의 보너스 점수를 재계산합니다.
 
-/// 편집 거리 기반 가산점 계산
-/// - 편집 거리가 0이면 20점 (완벽히 동일)
-/// - 편집 거리가 코드 길이의 50% 이상이면 0점
-/// - 그 사이는 선형 보간
-fn calculate_edit_distance_bonus(edit_distance: u32, code_length: usize) -> u32 {
-    const MAX_BONUS: u32 = 20;
-    
-    let threshold = (code_length as f64 * 0.5) as u32;
-    
-    if edit_distance == 0 {
-        MAX_BONUS
-    } else if edit_distance >= threshold {
-        0
-    } else {
-        // 선형 보간: (threshold - distance) / threshold * MAX_BONUS
-        ((threshold - edit_distance) as f64 / threshold as f64 * MAX_BONUS as f64) as u32
-    }
-}
+**실시간 업데이트 플로우:**
+```
+새 정답 제출 → 편집 거리 저장 → R_max/R_min 재계산 → 모든 정답자 보너스 재계산 → DB 업데이트
+```
 
-/// Levenshtein 편집 거리 계산
-pub fn levenshtein_distance(a: &str, b: &str) -> u32 {
-    let a_chars: Vec<char> = a.chars().collect();
-    let b_chars: Vec<char> = b.chars().collect();
+**구현 로직:**
+
+```typescript
+// web/src/lib/anigma-bonus.ts
+
+/**
+ * 대회 내 모든 정답 제출자의 보너스 점수를 재계산
+ * - 새 정답 제출 시 호출
+ * - max_score가 50인 제출만 대상 (대회 제출)
+ */
+export async function recalculateCompetitionBonus(
+    problemId: number,
+    competitionId?: number  // 향후 대회 기능 구현 시 사용
+) {
+    const MAX_BONUS = 20;
+    const K = 1.5;
     
-    let m = a_chars.len();
-    let n = b_chars.len();
+    // 1. 해당 문제의 모든 대회 정답 제출 조회 (max_score=50이고 verdict=accepted)
+    const acceptedSubmissions = await db.select({
+        id: submissions.id,
+        editDistance: submissions.editDistance,
+    })
+    .from(submissions)
+    .where(and(
+        eq(submissions.problemId, problemId),
+        eq(submissions.verdict, "accepted"),
+        eq(submissions.score, 50),  // 대회 제출만 (max_score=50)
+        isNotNull(submissions.editDistance),
+    ));
     
-    if m == 0 { return n as u32; }
-    if n == 0 { return m as u32; }
+    if (acceptedSubmissions.length === 0) return;
     
-    // DP 테이블 (메모리 최적화: 2행만 사용)
-    let mut prev = (0..=n as u32).collect::<Vec<_>>();
-    let mut curr = vec![0u32; n + 1];
+    // 2. R_max, R_min 계산
+    const distances = acceptedSubmissions.map(s => s.editDistance!);
+    const R_max = Math.max(...distances);
+    const R_min = Math.min(...distances);
     
-    for i in 1..=m {
-        curr[0] = i as u32;
-        for j in 1..=n {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
-            curr[j] = (prev[j] + 1)              // 삭제
-                .min(curr[j - 1] + 1)            // 삽입
-                .min(prev[j - 1] + cost);        // 교체
+    // 3. 각 제출의 보너스 점수 계산 및 업데이트
+    for (const sub of acceptedSubmissions) {
+        let bonus = 0;
+        
+        if (R_max === R_min) {
+            // 모든 참가자의 편집 거리가 같으면 모두 최대 보너스
+            bonus = MAX_BONUS;
+        } else {
+            const ratio = (R_max - sub.editDistance!) / (R_max - R_min);
+            bonus = Math.floor(MAX_BONUS * Math.pow(ratio, K));
         }
-        std::mem::swap(&mut prev, &mut curr);
+        
+        // 총점 = 기본점수(50) + 보너스
+        const newScore = 50 + bonus;
+        
+        await db.update(submissions)
+            .set({ 
+                score: newScore,
+                bonusScore: bonus,  // 보너스 점수 별도 저장 (향후 추가)
+            })
+            .where(eq(submissions.id, sub.id));
     }
-    
-    prev[n]
 }
 ```
 
-#### 2.4.3 채점 플로우 수정 (점수 포함)
+**호출 시점:**
+```typescript
+// web/src/lib/redis-subscriber.ts 또는 채점 결과 처리 부분
+
+// 채점 결과 수신 시
+if (result.verdict === "accepted" && result.score === 50) {
+    // 대회 정답 제출인 경우 보너스 재계산
+    await recalculateCompetitionBonus(result.problemId);
+}
+```
+
+**성능 고려사항:**
+- 참가자가 수백 명 수준이면 매 제출마다 재계산해도 성능 이슈 없음
+- 대규모 대회(1000명+)의 경우 debounce 또는 배치 처리 고려
+- 편집 거리와 보너스 점수에 인덱스 추가 권장
+
+```sql
+CREATE INDEX idx_submissions_anigma_bonus 
+ON submissions(problem_id, verdict, score) 
+WHERE verdict = 'accepted' AND edit_distance IS NOT NULL;
+```
+```
+
+#### 2.4.6 채점 플로우 수정 (점수 포함)
 
 ```rust
 pub async fn process_anigma_job(
@@ -538,7 +559,7 @@ pub async fn process_anigma_job(
 }
 ```
 
-#### 2.4.4 결과 구조체 확장
+#### 2.4.7 결과 구조체 확장
 
 ```rust
 /// Anigma 채점 결과
@@ -553,7 +574,7 @@ pub struct AnigmaJudgeResult {
 }
 ```
 
-#### 2.4.5 DB 스키마 확장 (점수 저장)
+#### 2.4.8 DB 스키마 확장 (점수 저장)
 
 ```sql
 -- submissions 테이블 확장 (Anigma 점수 상세)
@@ -566,16 +587,24 @@ ALTER TABLE submissions ADD COLUMN:
   - total_testcases: integer DEFAULT 0
 ```
 
-#### 2.4.6 점수 예시
+#### 2.4.9 점수 예시
 
-| 시나리오 | 런타임해결 | TC통과 | 편집거리보너스 | 총점 |
-|---------|-----------|--------|--------------|------|
-| 컴파일 에러 | 0 | 0 | 0 | **0점** |
-| 모든 TC 런타임 에러 | 0 | 0 | 0 | **0점** |
-| 일부 TC WA | 40 | 0 | 0 | **40점** |
-| 전체 TC 통과 (편집거리 높음) | 40 | 40 | 0 | **80점** |
-| 전체 TC 통과 (편집거리 낮음) | 40 | 40 | 15 | **95점** |
-| 전체 TC 통과 (원본과 동일) | 40 | 40 | 20 | **100점** |
+**비대회 제출 (max_score=70):**
+| 시나리오 | Task 1 | Task 2 | 보너스 | 총점 |
+|---------|--------|--------|--------|------|
+| Task 1만 성공 | 30 | 0 | 0 | **30점** |
+| Task 2만 성공 | 0 | 70 | 0 | **70점** |
+| 모두 성공 | 30 | 70 | 0 | **100점** |
+| 모두 실패 | 0 | 0 | 0 | **0점** |
+
+**대회 제출 (max_score=50):**
+| 시나리오 | Task 1 | Task 2 | 보너스 | 총점 |
+|---------|--------|--------|--------|------|
+| Task 1만 성공 | 30 | 0 | 0 | **30점** |
+| Task 2만 성공 (편집거리 높음) | 0 | 50 | 0 | **50점** |
+| Task 2만 성공 (편집거리 중간) | 0 | 50 | 10 | **60점** |
+| Task 2만 성공 (편집거리 낮음) | 0 | 50 | 20 | **70점** |
+| 모두 성공 (편집거리 최소) | 30 | 50 | 20 | **100점** |
 
 ---
 
@@ -1675,8 +1704,17 @@ zip = "2.1"           # ZIP 압축 해제
 - [ ] 다중 파일 실행 테스트 (Makefile)
 - [ ] 권한 체크 테스트 (admin, playground_access)
 - [ ] Anigma 채점 플로우 테스트
-- [ ] Anigma 점수 계산 검증 (런타임 해결 40점, TC통과 40점, 편집거리 보너스)
+- [ ] Anigma 점수 계산 검증 (Task1: 30점, Task2: max_score)
+- [ ] 편집 거리 저장 확인
 - [ ] 에러 처리 검증
+
+### Phase 5: 실시간 보너스 계산 (대회 기능 구현 시)
+- [ ] `recalculateCompetitionBonus` 함수 구현
+- [ ] 정답 제출 시 보너스 재계산 트리거
+- [ ] R_max, R_min 동적 계산 (해당 대회 정답자 중)
+- [ ] 모든 정답 제출자의 보너스 점수 실시간 업데이트
+- [ ] submissions 테이블에 `bonus_score` 컬럼 추가 (선택)
+- [ ] 대규모 대회용 성능 최적화 (debounce/배치 처리)
 
 ---
 
@@ -1701,5 +1739,5 @@ zip = "2.1"           # ZIP 압축 해제
 
 ---
 
-*마지막 업데이트: 2025-12-07*
+*마지막 업데이트: 2025-12-26*
 
