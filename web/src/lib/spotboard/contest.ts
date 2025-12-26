@@ -1,3 +1,9 @@
+/*
+ * Based on Spotboard (https://github.com/spotboard/spotboard)
+ * Copyright (c) Spotboard (Jongwook Choi, Wonha Ryu)
+ * Licensed under the MIT License
+ */
+
 import type { SpotboardProblem, SpotboardTeam } from "./types";
 
 export class Run {

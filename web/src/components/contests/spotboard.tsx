@@ -1,4 +1,11 @@
+/*
+ * Based on Spotboard (https://github.com/spotboard/spotboard)
+ * Copyright (c) Spotboard (Jongwook Choi, Wonha Ryu)
+ * Licensed under the MIT License
+ */
+
 "use client";
+
 
 import { useCallback, useEffect, useState } from "react";
 import { ContestLogic, Run, type TeamStatus } from "@/lib/spotboard/contest";

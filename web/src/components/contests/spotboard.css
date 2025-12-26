@@ -1,4 +1,11 @@
+/*
+ * Based on Spotboard (https://github.com/spotboard/spotboard)
+ * Copyright (c) Spotboard (Jongwook Choi, Wonha Ryu)
+ * Licensed under the MIT License
+ */
+
 /* Spotboard CSS adapted for Next.js */
+
 
 .spotboard-container {
     font-family: 'Open Sans', 'Nanum Gothic', sans-serif;
