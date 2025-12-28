@@ -101,7 +101,12 @@ export function MarkdownEditor({
 					if (isImage) {
 						insertImageMarkdown(result.url, file.name.replace(/\.[^/.]+$/, ""));
 					} else {
-						insertLinkMarkdown(result.url, file.name);
+						// Use originalName from result, fallback to file.name
+						const displayName =
+							"originalName" in result && typeof result.originalName === "string"
+								? result.originalName
+								: file.name;
+						insertLinkMarkdown(result.url, displayName);
 					}
 				} else {
 					setUploadError(result.error || "업로드에 실패했습니다.");
