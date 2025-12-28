@@ -12,12 +12,12 @@ dev-db-push:
 
 dev-reset:
 	docker compose down -v
-	docker compose up -d
+	docker compose up -d --build
 	make dev-db-push
 
 # 프로덕션 환경
 prod-up:
-	docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d --build
 
 prod-down:
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod down
@@ -27,5 +27,5 @@ prod-db-push:
 
 prod-reset:
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod down -v
-	docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d --build
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile migrate run --rm migrate

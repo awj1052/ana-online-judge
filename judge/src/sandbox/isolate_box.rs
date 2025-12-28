@@ -262,6 +262,10 @@ impl IsolateBox {
             "--env=PATH=/usr/local/bin:/usr/bin:/bin".to_string(),
             "--env=HOME=/box".to_string(),
             "--env=JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64".to_string(),
+            "--env=LANG=en_US.UTF-8".to_string(),
+            "--env=LC_ALL=en_US.UTF-8".to_string(),
+            "--env=LANGUAGE=en_US:en".to_string(),
+            "--env=JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8".to_string(),
         ]);
 
         args.push(format!("--stderr={}", io.stderr_file));

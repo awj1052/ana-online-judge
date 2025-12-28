@@ -29,7 +29,17 @@ RUN apt-get update && apt-get install -y \
     python3 \
     openjdk-17-jdk-headless \
     libcap-dev \
+    locales \
     && rm -rf /var/lib/apt/lists/*
+
+# Set UTF-8 locale as default
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen en_US.UTF-8
+
+ENV LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8 \
+    JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8"
 
 # Install isolate from source
 RUN apt-get update && apt-get install -y git make libcap-dev pkg-config libsystemd-dev \
