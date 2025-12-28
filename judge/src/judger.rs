@@ -269,11 +269,17 @@ pub async fn process_judge_job(
             ExecutionStatus::SystemError => Verdict::SystemError,
         };
 
+        let (execution_time, memory_used) = if verdict == Verdict::Accepted {
+            (Some(run_result.time_ms), Some(run_result.memory_kb))
+        } else {
+            (None, None)
+        };
+
         let tc_result = TestcaseResult {
             testcase_id: tc.id,
             verdict: verdict.to_string(),
-            execution_time: Some(run_result.time_ms),
-            memory_used: Some(run_result.memory_kb),
+            execution_time,
+            memory_used,
             output: output_preview,
         };
 

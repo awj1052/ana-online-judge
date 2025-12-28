@@ -147,6 +147,9 @@ pub async fn process_anigma_job(
 
         let run_result = execute_sandboxed(&run_spec).await?;
 
+        max_time_ms = max_time_ms.max(run_result.time_ms);
+        max_memory_kb = max_memory_kb.max(run_result.memory_kb);
+
         // 디버깅용 로그
         tracing::info!(
             "ANIGMA testcase {} result: status={:?}, stdout={}, stderr={}",
@@ -181,11 +184,17 @@ pub async fn process_anigma_job(
             )
         };
 
+        let (execution_time, memory_used) = if verdict == Verdict::Accepted {
+            (Some(run_result.time_ms), Some(run_result.memory_kb))
+        } else {
+            (None, None)
+        };
+
         testcase_results.push(TestcaseResult {
             testcase_id: tc.id,
             verdict: verdict.to_string(),
-            execution_time: Some(run_result.time_ms),
-            memory_used: Some(run_result.memory_kb),
+            execution_time,
+            memory_used,
             output: Some(output.chars().take(4096).collect()),
         });
 
@@ -245,12 +254,12 @@ pub async fn process_anigma_job(
             submission_id: job.submission_id,
             verdict: overall_verdict.to_string(),
             score,
-            execution_time: if max_time_ms > 0 {
+            execution_time: if overall_verdict == Verdict::Accepted {
                 Some(max_time_ms)
             } else {
                 None
             },
-            memory_used: if max_memory_kb > 0 {
+            memory_used: if overall_verdict == Verdict::Accepted {
                 Some(max_memory_kb)
             } else {
                 None
@@ -473,8 +482,16 @@ pub async fn process_anigma_task1_job(
         submission_id: job.submission_id,
         verdict: verdict.to_string(),
         score: if is_different { TASK1_SCORE } else { 0 },
-        execution_time: Some(max_time),
-        memory_used: Some(max_memory),
+        execution_time: if verdict == Verdict::Accepted {
+            Some(max_time)
+        } else {
+            None
+        },
+        memory_used: if verdict == Verdict::Accepted {
+            Some(max_memory)
+        } else {
+            None
+        },
         testcase_results: vec![],
         error_message: None,
     })

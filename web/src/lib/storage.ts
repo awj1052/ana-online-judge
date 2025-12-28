@@ -168,10 +168,25 @@ export function generateImagePath(problemId: number | null, filename: string): s
 }
 
 /**
+ * Generate a general file path
+ */
+export function generateFilePath(problemId: number | null, filename: string): string {
+	const prefix = problemId ? `files/problems/${problemId}` : "files/general";
+	return `${prefix}/${filename}`;
+}
+
+/**
  * Get the public URL for an image (via API route proxy)
  */
 export function getImageUrl(key: string): string {
 	return `/api/images/${encodeURIComponent(key)}`;
+}
+
+/**
+ * Get the public URL for a file (via API route proxy)
+ */
+export function getFileUrl(key: string): string {
+	return `/api/files/${encodeURIComponent(key)}`;
 }
 
 /**
@@ -197,6 +212,12 @@ export async function uploadImage(
 		key,
 		url: getImageUrl(key),
 	};
+}
+
+export interface StorageObject {
+	key: string;
+	size: number;
+	lastModified: Date;
 }
 
 /**
@@ -227,6 +248,40 @@ export async function listObjects(prefix: string): Promise<string[]> {
 	} while (continuationToken);
 
 	return keys;
+}
+
+/**
+ * List all objects with details
+ */
+export async function listObjectsWithDetails(prefix: string): Promise<StorageObject[]> {
+	const objects: StorageObject[] = [];
+	let continuationToken: string | undefined;
+
+	do {
+		const response = await s3Client.send(
+			new ListObjectsV2Command({
+				Bucket: BUCKET,
+				Prefix: prefix,
+				ContinuationToken: continuationToken,
+			})
+		);
+
+		if (response.Contents) {
+			for (const obj of response.Contents) {
+				if (obj.Key && obj.Size !== undefined && obj.LastModified) {
+					objects.push({
+						key: obj.Key,
+						size: obj.Size,
+						lastModified: obj.LastModified,
+					});
+				}
+			}
+		}
+
+		continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+	} while (continuationToken);
+
+	return objects;
 }
 
 /**
