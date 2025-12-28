@@ -142,7 +142,7 @@ export async function submitAnigmaTask1(data: {
 
 /**
  * ANIGMA Task 2: ZIP 파일 제출
- * 테스트케이스 통과 + 편집거리 (80점)
+ * 테스트케이스 통과 + 편집거리 (70점)
  */
 export async function submitAnigmaCode(data: {
 	problemId: number;
@@ -259,7 +259,10 @@ export async function submitAnigmaCode(data: {
 				reference_code_path: problem.referenceCodePath || "", // 편집 거리 계산용 원본 코드
 				time_limit: problem.timeLimit,
 				memory_limit: problem.memoryLimit,
-				max_score: problem.maxScore,
+				// ANIGMA 대회 제출 시에는 기본 점수(50점) + 보너스(20점) 구조이므로,
+				// 초기 채점 시에는 maxScore에서 보너스 점수(20)를 뺀 값을 기본 점수로 부여합니다.
+				// 평상시 제출에는 maxScore(70점)를 그대로 부여합니다.
+				max_score: data.contestId ? Math.max(0, problem.maxScore - 20) : problem.maxScore,
 				testcases: problemTestcases.map((tc) => ({
 					id: tc.id,
 					input_path: tc.inputPath,

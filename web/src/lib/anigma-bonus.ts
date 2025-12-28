@@ -1,6 +1,6 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
-import { submissions } from "@/db/schema";
+import { problems, submissions } from "@/db/schema";
 
 const MAX_BONUS = 20;
 const K = 1.5;
@@ -12,6 +12,19 @@ const K = 1.5;
  * IMPORTANT: Only considers the BEST submission per user (highest score, then shortest edit distance)
  */
 export async function recalculateContestBonus(contestId: number, problemId: number) {
+	// 0. Get problem info (maxScore)
+	const [problem] = await db
+		.select({
+			maxScore: problems.maxScore,
+		})
+		.from(problems)
+		.where(eq(problems.id, problemId));
+
+	if (!problem) {
+		console.error(`Problem not found: ${problemId}`);
+		return;
+	}
+
 	// 1. Get all accepted Task2 submissions for this problem in this contest with edit distance
 	const allAcceptedSubmissions = await db
 		.select({
@@ -87,8 +100,9 @@ export async function recalculateContestBonus(contestId: number, problemId: numb
 			bonus = Math.floor(MAX_BONUS * ratio ** K);
 		}
 
-		// Task 2 (ZIP submission): base score is 50 for contest
-		const baseScore = 50;
+		// Task 2 (ZIP submission): base score is maxScore - MAX_BONUS
+		// e.g., if maxScore is 70, base score is 50, and bonus is up to 20
+		const baseScore = Math.max(0, problem.maxScore - MAX_BONUS);
 
 		// Calculate new total score: base + bonus
 		const newScore = baseScore + bonus;
