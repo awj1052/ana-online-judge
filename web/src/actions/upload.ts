@@ -68,7 +68,7 @@ export async function uploadProblemFile(formData: FormData, problemId?: number) 
 
 		// Validate file size
 		if (file.size > MAX_FILE_SIZE) {
-			return { success: false, error: "파일 크기가 50MB를 초과합니다." };
+			return { success: false, error: "파일 크기가 20MB를 초과합니다." };
 		}
 
 		// Generate unique filename
@@ -84,7 +84,7 @@ export async function uploadProblemFile(formData: FormData, problemId?: number) 
 		await uploadFile(key, buffer, file.type || "application/octet-stream");
 		const url = getFileUrl(key);
 
-		return { success: true, url };
+		return { success: true, url, originalName: file.name };
 	} catch (error) {
 		console.error("Failed to upload file:", error);
 		return { success: false, error: "파일 업로드에 실패했습니다." };

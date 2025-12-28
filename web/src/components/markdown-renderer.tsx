@@ -74,16 +74,23 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
 					li: ({ children }) => <li className="leading-7">{children}</li>,
 
 					// 링크
-					a: ({ href, children }) => (
-						<a
-							href={href}
-							className="text-primary hover:underline"
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							{children}
-						</a>
-					),
+					a: ({ href, children }) => {
+						// 파일 다운로드 링크인지 확인
+						const isFileDownload = href?.startsWith("/api/files/");
+						const fileName = isFileDownload && typeof children === "string" ? children : undefined;
+
+						return (
+							<a
+								href={href}
+								className="text-primary hover:underline"
+								target="_blank"
+								rel="noopener noreferrer"
+								{...(isFileDownload && fileName ? { download: fileName } : {})}
+							>
+								{children}
+							</a>
+						);
+					},
 
 					// 인용
 					blockquote: ({ children }) => (

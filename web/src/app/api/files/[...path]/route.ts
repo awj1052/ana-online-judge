@@ -20,7 +20,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 export async function GET(
-	_request: NextRequest,
+	request: NextRequest,
 	{ params }: { params: Promise<{ path: string[] }> }
 ) {
 	try {
@@ -34,12 +34,23 @@ export async function GET(
 		// Download file from MinIO
 		const buffer = await downloadFile(key);
 
-		return new NextResponse(new Uint8Array(buffer), {
-			headers: {
-				"Content-Type": contentType,
-				"Cache-Control": "public, max-age=31536000, immutable",
-			},
-		});
+		// Check if download parameter is present for filename
+		const searchParams = request.nextUrl.searchParams;
+		const downloadFilename = searchParams.get("download");
+
+		const headers: HeadersInit = {
+			"Content-Type": contentType,
+			"Cache-Control": "public, max-age=31536000, immutable",
+		};
+
+		// Add Content-Disposition header if download filename is specified
+		if (downloadFilename) {
+			headers["Content-Disposition"] = `attachment; filename="${encodeURIComponent(
+				downloadFilename
+			)}"`;
+		}
+
+		return new NextResponse(new Uint8Array(buffer), { headers });
 	} catch (error) {
 		console.error("Failed to fetch file:", error);
 		return new NextResponse("File not found", { status: 404 });
