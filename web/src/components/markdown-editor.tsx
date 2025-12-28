@@ -1,10 +1,10 @@
 "use client";
 
 import Editor, { type OnMount } from "@monaco-editor/react";
-import { ImagePlus, Loader2 } from "lucide-react";
+import { FileUp, Loader2 } from "lucide-react";
 import type * as monaco from "monaco-editor";
 import { useCallback, useRef, useState } from "react";
-import { uploadProblemImage } from "@/actions/upload";
+import { uploadProblemFile, uploadProblemImage } from "@/actions/upload";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,12 +38,11 @@ export function MarkdownEditor({
 		editorRef.current = editor;
 	};
 
-	const insertImageMarkdown = useCallback(
-		(url: string, altText: string = "image") => {
+	const insertMarkdown = useCallback(
+		(text: string) => {
 			const editor = editorRef.current;
 			if (!editor) {
-				// Fallback: append to value
-				onChange(`${value}\n![${altText}](${url})`);
+				onChange(`${value}\n${text}`);
 				return;
 			}
 
@@ -53,7 +52,6 @@ export function MarkdownEditor({
 				: editor.getPosition();
 
 			if (position) {
-				const markdown = `![${altText}](${url})`;
 				editor.executeEdits("", [
 					{
 						range: {
@@ -62,7 +60,7 @@ export function MarkdownEditor({
 							endLineNumber: position.lineNumber,
 							endColumn: position.column,
 						},
-						text: markdown,
+						text: text,
 					},
 				]);
 				editor.focus();
@@ -71,7 +69,21 @@ export function MarkdownEditor({
 		[value, onChange]
 	);
 
-	const uploadImage = useCallback(
+	const insertImageMarkdown = useCallback(
+		(url: string, altText: string = "image") => {
+			insertMarkdown(`![${altText}](${url})`);
+		},
+		[insertMarkdown]
+	);
+
+	const insertLinkMarkdown = useCallback(
+		(url: string, text: string) => {
+			insertMarkdown(`[${text}](${url})`);
+		},
+		[insertMarkdown]
+	);
+
+	const handleFileUpload = useCallback(
 		async (file: File) => {
 			setIsUploading(true);
 			setUploadError(null);
@@ -80,10 +92,17 @@ export function MarkdownEditor({
 				const formData = new FormData();
 				formData.append("file", file);
 
-				const result = await uploadProblemImage(formData, problemId);
+				const isImage = file.type.startsWith("image/");
+				const uploadFn = isImage ? uploadProblemImage : uploadProblemFile;
+
+				const result = await uploadFn(formData, problemId);
 
 				if (result.success && result.url) {
-					insertImageMarkdown(result.url, file.name.replace(/\.[^/.]+$/, ""));
+					if (isImage) {
+						insertImageMarkdown(result.url, file.name.replace(/\.[^/.]+$/, ""));
+					} else {
+						insertLinkMarkdown(result.url, file.name);
+					}
 				} else {
 					setUploadError(result.error || "업로드에 실패했습니다.");
 				}
@@ -93,7 +112,7 @@ export function MarkdownEditor({
 				setIsUploading(false);
 			}
 		},
-		[problemId, insertImageMarkdown]
+		[problemId, insertImageMarkdown, insertLinkMarkdown]
 	);
 
 	// Handle file input change
@@ -101,14 +120,14 @@ export function MarkdownEditor({
 		(e: React.ChangeEvent<HTMLInputElement>) => {
 			const file = e.target.files?.[0];
 			if (file) {
-				uploadImage(file);
+				handleFileUpload(file);
 			}
 			// Reset input
 			if (fileInputRef.current) {
 				fileInputRef.current.value = "";
 			}
 		},
-		[uploadImage]
+		[handleFileUpload]
 	);
 
 	// Handle paste event
@@ -118,17 +137,17 @@ export function MarkdownEditor({
 			if (!items) return;
 
 			for (const item of items) {
-				if (item.type.startsWith("image/")) {
-					e.preventDefault();
+				if (item.kind === "file") {
 					const file = item.getAsFile();
 					if (file) {
-						uploadImage(file);
+						e.preventDefault();
+						handleFileUpload(file);
+						return;
 					}
-					return;
 				}
 			}
 		},
-		[uploadImage]
+		[handleFileUpload]
 	);
 
 	// Handle drag and drop
@@ -141,11 +160,9 @@ export function MarkdownEditor({
 			if (!files?.length) return;
 
 			const file = files[0];
-			if (file.type.startsWith("image/")) {
-				uploadImage(file);
-			}
+			handleFileUpload(file);
 		},
-		[uploadImage]
+		[handleFileUpload]
 	);
 
 	const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -182,13 +199,12 @@ export function MarkdownEditor({
 								onClick={() => fileInputRef.current?.click()}
 								disabled={disabled || isUploading}
 							>
-								<ImagePlus className="h-4 w-4 mr-1" />
-								이미지
+								<FileUp className="h-4 w-4 mr-1" />
+								파일 업로드
 							</Button>
 							<input
 								ref={fileInputRef}
 								type="file"
-								accept="image/jpeg,image/png,image/gif,image/webp"
 								className="hidden"
 								onChange={handleFileSelect}
 							/>
