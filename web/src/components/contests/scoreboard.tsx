@@ -72,7 +72,7 @@ export function Scoreboard({
 									<TableCell>
 										<div>
 											<div className="font-medium">{entry.name}</div>
-											<div className="text-sm text-muted-foreground">{entry.username}</div>
+											{/* <div className="text-sm text-muted-foreground">{entry.username}</div> */}
 										</div>
 									</TableCell>
 									<TableCell className="text-right font-bold">{entry.totalScore}</TableCell>
@@ -95,7 +95,8 @@ export function Scoreboard({
 															totalScore={problem.score || 0}
 															compact
 															canViewEditDistance={
-																isAdmin || (currentUserId !== null && entry.userId === currentUserId)
+																isAdmin ||
+																(currentUserId !== null && entry.userId === currentUserId)
 															}
 														/>
 													) : (

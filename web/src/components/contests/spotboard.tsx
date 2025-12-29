@@ -11,6 +11,39 @@ import { ContestLogic, Run, type TeamStatus } from "@/lib/spotboard/contest";
 import type { SpotboardConfig, SpotboardRun } from "@/lib/spotboard/types";
 import "./spotboard.css";
 
+// HSV to RGB conversion (from original spotboard)
+function hsvToRgb(h: number, s: number, v: number): string {
+	let r: number, g: number, b: number;
+	const i = Math.floor(h * 6);
+	const f = h * 6 - i;
+	const p = v * (1 - s);
+	const q = v * (1 - f * s);
+	const t = v * (1 - (1 - f) * s);
+	switch (i % 6) {
+		case 0:
+			(r = v), (g = t), (b = p);
+			break;
+		case 1:
+			(r = q), (g = v), (b = p);
+			break;
+		case 2:
+			(r = p), (g = v), (b = t);
+			break;
+		case 3:
+			(r = p), (g = q), (b = v);
+			break;
+		case 4:
+			(r = t), (g = p), (b = v);
+			break;
+		case 5:
+			(r = v), (g = p), (b = q);
+			break;
+		default:
+			(r = 0), (g = 0), (b = 0);
+	}
+	return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+}
+
 interface SpotboardProps {
 	config: SpotboardConfig;
 	isAwardMode?: boolean;
@@ -33,9 +66,22 @@ export function Spotboard({ config, isAwardMode = false }: SpotboardProps) {
 		let hidden: SpotboardRun[] = [];
 
 		if (isAwardMode && config.freezeTime) {
-			// In award mode, we start with runs before freeze time
+			// In award mode:
+			// 1. Add runs before freeze time (normal state)
 			initialRuns = config.runs.filter((r) => r.time < config.freezeTime!);
+
+			// 2. Store frozen runs as hidden (will be revealed one by one)
 			hidden = config.runs.filter((r) => r.time >= config.freezeTime!);
+
+			// 3. CRITICAL: Add frozen runs as PENDING state to mask them
+			// This is what original spotboard does - all frozen runs appear as "?"
+			const frozenRunsAsPending = hidden.map((r) => ({
+				...r,
+				result: "Pending", // Mask the actual result
+			}));
+
+			// Add pending runs to initial state
+			initialRuns = [...initialRuns, ...frozenRunsAsPending];
 		}
 
 		for (const run of initialRuns) {
@@ -58,34 +104,101 @@ export function Spotboard({ config, isAwardMode = false }: SpotboardProps) {
 		}
 	}, [logic]);
 
+	// Initialize dynamic styles for problem labels (A, B, C, etc.)
+	useEffect(() => {
+		if (!config) return;
+
+		const styleId = "spotboard-dynamic-styles";
+		let style = document.getElementById(styleId) as HTMLStyleElement;
+
+		if (!style) {
+			style = document.createElement("style");
+			style.id = styleId;
+			document.head.appendChild(style);
+		}
+
+		let css = "";
+
+		// Add problem letter labels to problem-result boxes
+		config.problems.forEach((prob) => {
+			css += `.problem-result.problem-${prob.id} b:before { content: "${prob.title}"; }\n`;
+		});
+
+		// Add solved-count background colors for each solved level
+		// Original spotboard uses HSV gradient from red to green
+		const solvedLevels = config.problems.length + 1;
+		for (let i = 0; i <= solvedLevels; i++) {
+			const ratio = i / solvedLevels;
+			// HSV gradient: H from -2/360 to 105/360, S=0.96, V=0.31
+			const h = (-2 / 360) * (1 - ratio) + (105 / 360) * ratio;
+			let s = 0.96;
+			let v = 0.31;
+
+			// Alternate shading for better visibility
+			if (i % 2 === 1) {
+				s = Math.max(s - 0.15, 0);
+				v = Math.min(v + 0.1, 1);
+			}
+
+			const rgb = hsvToRgb(h, s, v);
+			css += `.solved-${i} .solved-count { background-color: ${rgb}; }\n`;
+		}
+
+		style.textContent = css;
+	}, [config]);
+
 	// Award ceremony step (ICPC Style)
 	const revealNext = useCallback(() => {
 		if (!logic) return;
 
 		// 1. If we have a focused team, continue processing it
 		if (focusedTeamId !== null) {
-			// Check if this team has hidden runs
-			const teamRuns = hiddenRuns
-				.filter((r) => r.teamId === focusedTeamId)
-				.sort((a, b) => a.time - b.time);
+			// Get all pending problems for this team (problems that still show "?")
+			const teamStatus = logic.teamStatuses.get(focusedTeamId);
+			if (!teamStatus) return;
 
-			if (teamRuns.length > 0) {
-				// Reveal ONE run
-				const nextRun = teamRuns[0];
-				const runToAdd = new Run(
-					nextRun.id,
-					nextRun.teamId,
-					nextRun.problemId,
-					nextRun.time,
-					nextRun.result,
-					nextRun.score,
-					nextRun.problemType
+			// Find pending problems (problems with hidden runs)
+			const pendingProblems: number[] = [];
+			for (const [problemId, pStatus] of teamStatus.problemStatuses) {
+				// Check if this problem has hidden runs
+				const hasHidden = hiddenRuns.some(
+					(r) => r.teamId === focusedTeamId && r.problemId === problemId
 				);
-				logic.addRun(runToAdd);
-				setHiddenRuns((prev) => prev.filter((r) => r.id !== nextRun.id));
+				if (hasHidden) {
+					pendingProblems.push(problemId);
+				}
+			}
+
+			if (pendingProblems.length > 0) {
+				// Reveal ONE problem (all runs for that problem)
+				const nextProblemId = pendingProblems[0];
+
+				// Get all hidden runs for this problem
+				const problemRuns = hiddenRuns
+					.filter((r) => r.teamId === focusedTeamId && r.problemId === nextProblemId)
+					.sort((a, b) => a.time - b.time);
+
+				// Reveal all runs for this ONE problem
+				for (const run of problemRuns) {
+					const runToAdd = new Run(
+						run.id,
+						run.teamId,
+						run.problemId,
+						run.time,
+						run.result,
+						run.score,
+						run.problemType
+					);
+					logic.addRun(runToAdd);
+				}
+
+				// Remove revealed runs from hidden
+				setHiddenRuns((prev) =>
+					prev.filter((r) => !(r.teamId === focusedTeamId && r.problemId === nextProblemId))
+				);
 				updateRankings();
 			} else {
-				// No more runs for this team -> Finalize
+				// No more pending problems for this team -> Finalize
 				setFinalizedTeams((prev) => {
 					const next = new Set(prev);
 					next.add(focusedTeamId);
@@ -159,6 +272,18 @@ export function Spotboard({ config, isAwardMode = false }: SpotboardProps) {
 							rank % 100 > 10 && rank % 100 < 20 ? 0 : rank % 10 < 4 ? rank % 10 : 0
 						];
 
+						// Check if this is first/last team with this solved count (for solved-count display)
+						let solvedCountClass = "";
+						if (index === 0 || rankedTeams[index - 1].status.getTotalSolved() !== solved) {
+							solvedCountClass = "first";
+						}
+						if (
+							index === rankedTeams.length - 1 ||
+							rankedTeams[index + 1].status.getTotalSolved() !== solved
+						) {
+							solvedCountClass += solvedCountClass ? " last" : "last";
+						}
+
 						return (
 							<div
 								key={team.id}
@@ -168,20 +293,18 @@ export function Spotboard({ config, isAwardMode = false }: SpotboardProps) {
 								}}
 							>
 								<div className={`team-rank suffix-${suffix}`}>{rank}</div>
-								<div className={`solved-count ${solved > 0 ? "" : "text-transparent"}`}>
-									{solved}
-								</div>
-								<div className="team-name" style={{ float: "left", width: "300px" }}>
-									<div className="team-title">{team.name}</div>
-									<div className="team-represents">{team.group}</div>
-								</div>
+								<div className={`solved-count ${solvedCountClass}`}>{solved}</div>
+
+								{/* Penalty must come BEFORE results for float: right to work correctly */}
+								<div className="team-penalty">{penalty}</div>
 
 								<div className="results">
 									{config.problems.map((prob) => {
-										const pStatus = status.getProblemStatus(prob.id);
+										const pStatus = status.getProblemStatus(prob.id, prob.problemType);
 										const isAccepted = pStatus.isAccepted();
 										const isPending = pStatus.isPending();
-										const isFailed = !isAccepted && !isPending && pStatus.getFailedAttempts() > 0;
+										const isFailed = pStatus.isFailed();
+										const isAnigma = pStatus.isAnigma();
 
 										let className = "problem-result";
 										if (isAccepted) className += " solved";
@@ -196,28 +319,41 @@ export function Spotboard({ config, isAwardMode = false }: SpotboardProps) {
 											className += " pending";
 										}
 
+										// ANIGMA 점수 또는 ICPC 시도 횟수 표시
+										let resultText = "";
+										if (isAnigma) {
+											// ANIGMA: 점수 표시
+											if (isAccepted || pStatus.getBestScore() > 0) {
+												resultText = `+${pStatus.getBestScore()}`;
+											} else if (isPending || hasHidden) {
+												resultText = "?";
+											}
+										} else {
+											// ICPC: 시도 횟수 표시
+											if (isAccepted) {
+												resultText =
+													pStatus.getFailedAttempts() > 0 ? `+${pStatus.getFailedAttempts()}` : "+";
+											} else if (isFailed) {
+												resultText = `-${pStatus.getFailedAttempts()}`;
+											} else if (isPending || hasHidden) {
+												resultText = "?";
+											}
+										}
+
 										return (
-											<div key={prob.id} className={className}>
+											<div key={prob.id} className={`${className} problem-${prob.id}`}>
 												<div className="problem-result-text">
-													<b>
-														{isAccepted ? "+" : isFailed ? "-" : ""}
-														{isAccepted
-															? pStatus.getFailedAttempts() > 0
-																? pStatus.getFailedAttempts()
-																: ""
-															: isFailed
-																? pStatus.getFailedAttempts()
-																: isPending || hasHidden
-																	? "?"
-																	: ""}
-													</b>
+													<b>{resultText}</b>
 												</div>
 											</div>
 										);
 									})}
 								</div>
 
-								<div className="team-penalty">{penalty}</div>
+								<div className="team-name" style={{ float: "left", width: "300px" }}>
+									<div className="team-title">{team.name}</div>
+									{/* <div className="team-represents">{team.group}</div> */}
+								</div>
 							</div>
 						);
 					})}

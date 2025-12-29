@@ -170,6 +170,45 @@
     border-bottom-right-radius: 0.3em;
 }
 
+/* Problem result box styling - label positioning */
+.spotboard-container .problem-result b {
+    font-weight: 600;
+}
+
+.spotboard-container .problem-result b:before {
+    color: #bbb;
+    content: '';
+    display: block;
+    text-align: center;
+    line-height: 120%;
+    font-weight: 600;
+    font-size: 1.3em;
+    text-shadow: 0 0 1px rgba(153,153,153,0.5);
+    position: relative;
+    top: 0;
+    right: 0.1em;
+    float: right;
+    height: 100%;
+    box-sizing: border-box;
+    margin-left: -0.5em;
+    letter-spacing: 0px;
+}
+
+.spotboard-container .solved b:before {
+    color: white;
+    text-shadow: 0 0 1px rgba(255,255,255,0.5), 0 0 2.5px rgba(255,255,255,0.2);
+}
+
+.spotboard-container .failed b:before {
+    color: white;
+    text-shadow: 0 0 1px rgba(255,255,255,0.5), 0 0 2.5px rgba(255,255,255,0.2);
+}
+
+.spotboard-container .pending b:before {
+    color: #555;
+    text-shadow: 0 0 1px rgba(80,80,80,0.5), 0 0 2.5px rgba(80,80,80,0.2);
+}
+
 
 .spotboard-container .team-title {
     display: block;

@@ -4,19 +4,31 @@ import { auth } from "@/auth";
 
 export async function middleware(request: NextRequest) {
 	const session = await auth();
+	const { pathname } = request.nextUrl;
+
+	// Add pathname to headers for use in layouts
+	const requestHeaders = new Headers(request.headers);
+	requestHeaders.set("x-pathname", pathname);
 
 	// If user is not logged in, allow normal flow
 	if (!session?.user) {
-		return NextResponse.next();
+		return NextResponse.next({
+			request: {
+				headers: requestHeaders,
+			},
+		});
 	}
 
 	// If user is not a contest-only account, allow normal flow
 	if (!session.user.contestAccountOnly) {
-		return NextResponse.next();
+		return NextResponse.next({
+			request: {
+				headers: requestHeaders,
+			},
+		});
 	}
 
 	// Contest-only account restrictions
-	const { pathname } = request.nextUrl;
 
 	// Allowed paths for contest-only accounts
 	const allowedPaths = [
@@ -27,20 +39,32 @@ export async function middleware(request: NextRequest) {
 
 	// Check if path is allowed
 	if (allowedPaths.some((path) => pathname.startsWith(path))) {
-		return NextResponse.next();
+		return NextResponse.next({
+			request: {
+				headers: requestHeaders,
+			},
+		});
 	}
 
 	// Allow access to the contest they're assigned to
 	if (session.user.contestId) {
 		const contestPath = `/contests/${session.user.contestId}`;
 		if (pathname.startsWith(contestPath)) {
-			return NextResponse.next();
+			return NextResponse.next({
+				request: {
+					headers: requestHeaders,
+				},
+			});
 		}
 	}
 
 	// Allow access to submissions pages (their own)
 	if (pathname.startsWith("/submissions/")) {
-		return NextResponse.next();
+		return NextResponse.next({
+			request: {
+				headers: requestHeaders,
+			},
+		});
 	}
 
 	// Redirect to their contest page

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "pretendard/dist/web/variable/pretendardvariable.css";
 import "./globals.css";
 import { auth } from "@/auth";
@@ -30,6 +31,11 @@ export default async function RootLayout({
 	children: React.ReactNode;
 }>) {
 	const session = await auth();
+	const headersList = await headers();
+	const pathname = headersList.get("x-pathname") || "";
+
+	// 스코어보드 페이지에서는 헤더와 푸터를 숨김
+	const isScoreboardPage = pathname.includes("/scoreboard");
 
 	return (
 		<html lang="ko" suppressHydrationWarning>
@@ -41,9 +47,9 @@ export default async function RootLayout({
 						enableSystem
 						disableTransitionOnChange
 					>
-						<Header user={session?.user} />
+						{!isScoreboardPage && <Header user={session?.user} />}
 						<main className="flex-1">{children}</main>
-						<Footer />
+						{!isScoreboardPage && <Footer />}
 						<Toaster />
 					</ThemeProvider>
 				</SessionProvider>

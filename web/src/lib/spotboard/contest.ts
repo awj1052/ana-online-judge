@@ -98,6 +98,20 @@ export class TeamProblemStatus {
 		}
 		return 0;
 	}
+
+	// ANIGMA: 최고 점수 반환
+	getBestScore(): number {
+		return this.bestScore;
+	}
+
+	// ANIGMA 문제인지 확인
+	isAnigma(): boolean {
+		return this.problemType === "anigma";
+	}
+
+	isFailed(): boolean {
+		return !this.isPending() && !this.isAccepted() && this.getFailedAttempts() > 0;
+	}
 }
 
 export class TeamStatus {
