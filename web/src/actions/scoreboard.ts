@@ -182,6 +182,7 @@ interface ScoreboardEntry {
 	name: string;
 	totalScore: number;
 	penalty: number; // in minutes
+	maxSubmissionTime: number; // 최대 제출 시간 (minutes from contest start, 늦을수록 불리)
 	problems: {
 		[label: string]: {
 			problemType: "icpc" | "special_judge" | "anigma";
@@ -304,6 +305,7 @@ export async function getScoreboard(contestId: number) {
 			name: participant.name,
 			totalScore: 0,
 			penalty: 0,
+			maxSubmissionTime: 0, // 최대 제출 시간 (minutes from contest start)
 			problems: {},
 		};
 
@@ -368,7 +370,7 @@ export async function getScoreboard(contestId: number) {
 			}
 		}
 
-		// Second pass: process all submissions for display
+		// Second pass: process all submissions for display and track max submission time
 		for (const submission of submissionsList) {
 			if (submission.userId !== participant.userId) continue;
 
@@ -383,6 +385,14 @@ export async function getScoreboard(contestId: number) {
 			// Check if submission is frozen
 			const submissionTime = new Date(submission.createdAt);
 			const isFrozen = !isAdmin && shouldFreeze && freezeTime && submissionTime >= freezeTime;
+
+			// Track max submission time (only for non-frozen submissions)
+			if (!isFrozen) {
+				const submissionTimeMinutes = Math.floor(
+					(submissionTime.getTime() - new Date(contest.startTime).getTime()) / 60000
+				);
+				entry.maxSubmissionTime = Math.max(entry.maxSubmissionTime, submissionTimeMinutes);
+			}
 
 			if (problemType === "anigma") {
 				// ANIGMA: use pre-calculated best submissions
@@ -461,12 +471,16 @@ export async function getScoreboard(contestId: number) {
 		scoreboard.push(entry);
 	}
 
-	// Sort scoreboard: total score desc, then penalty asc
+	// Sort scoreboard: total score desc, then penalty asc, then max submission time asc (늦을수록 불리)
 	scoreboard.sort((a, b) => {
 		if (a.totalScore !== b.totalScore) {
 			return b.totalScore - a.totalScore;
 		}
-		return a.penalty - b.penalty;
+		if (a.penalty !== b.penalty) {
+			return a.penalty - b.penalty;
+		}
+		// 총점과 페널티가 같으면 최대 제출 시간이 작은 것(빠른 것)이 우선
+		return a.maxSubmissionTime - b.maxSubmissionTime;
 	});
 
 	// Assign ranks
@@ -475,7 +489,8 @@ export async function getScoreboard(contestId: number) {
 			scoreboard[i].rank = 1;
 		} else if (
 			scoreboard[i].totalScore === scoreboard[i - 1].totalScore &&
-			scoreboard[i].penalty === scoreboard[i - 1].penalty
+			scoreboard[i].penalty === scoreboard[i - 1].penalty &&
+			scoreboard[i].maxSubmissionTime === scoreboard[i - 1].maxSubmissionTime
 		) {
 			scoreboard[i].rank = scoreboard[i - 1].rank;
 		} else {

@@ -299,12 +299,14 @@ export default function AnigmaPage() {
 								<h4 className="font-semibold mb-3">순위 결정 우선순위</h4>
 								<ol className="list-decimal list-inside space-y-2 text-sm">
 									<li>
-										<strong>총점</strong>이 높은 순서 (내림차순)
+										<strong>총점</strong>이 높은 순서
 									</li>
 									<li>
-										총점이 같으면 <strong>페널티</strong>가 적은 순서 (오름차순)
+										<strong>페널티</strong>가 적은 순서
 									</li>
-									<li>총점과 페널티가 모두 같으면 같은 등수</li>
+									<li>
+										<strong>최대 제출 시간</strong>이 빠른 순서
+									</li>
 								</ol>
 							</div>
 						</CardContent>
