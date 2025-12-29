@@ -267,7 +267,7 @@ export async function submitAnigmaCode(data: {
 				memory_limit: problem.memoryLimit,
 				// ANIGMA는 항상 100점 만점: Task1 30점, Task2 50점(기본) + 20점(보너스)
 				// 대회 제출 시 초기 점수는 기본 50점으로 설정하고, 보너스 재계산 시 70점으로 업데이트
-				max_score: data.contestId ? ANIGMA_TASK2_BASE_SCORE : ANIGMA_MAX_SCORE,
+				max_score: ANIGMA_TASK2_BASE_SCORE + (data.contestId ? 0 : ANIGMA_TASK2_BONUS),
 				testcases: problemTestcases.map((tc) => ({
 					id: tc.id,
 					input_path: tc.inputPath,
