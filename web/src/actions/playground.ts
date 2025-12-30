@@ -14,21 +14,22 @@ import {
 
 /**
  * 사용자가 플레이그라운드 접근 권한이 있는지 확인
- * - admin 역할이거나
- * - playground_access가 true인 경우
+ * - 모든 로그인한 사용자가 접근 가능
  */
 async function hasPlaygroundAccess(userId: number): Promise<boolean> {
 	const [user] = await db
 		.select({
-			role: users.role,
-			playgroundAccess: users.playgroundAccess,
+			// role: users.role,
+			// playgroundAccess: users.playgroundAccess,
+			id: users.id,
 		})
 		.from(users)
 		.where(eq(users.id, userId));
 
 	if (!user) return false;
 
-	return user.role === "admin" || user.playgroundAccess === true;
+	// return user.role === "admin" || user.playgroundAccess === true;
+	return user.id !== undefined;
 }
 
 /**
