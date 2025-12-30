@@ -114,6 +114,8 @@ export async function getSpotboardData(contestId: number): Promise<SpotboardConf
 			problemId: submissions.problemId,
 			verdict: submissions.verdict,
 			score: submissions.score,
+			anigmaTaskType: submissions.anigmaTaskType,
+			editDistance: submissions.editDistance,
 			createdAt: submissions.createdAt,
 		})
 		.from(submissions)
@@ -129,15 +131,22 @@ export async function getSpotboardData(contestId: number): Promise<SpotboardConf
 	const spotboardRuns: SpotboardRun[] = [];
 	const startTimeMs = new Date(contest.startTime).getTime();
 
-	let freezeTimeMinutes: number | undefined;
+	let freezeTimeSeconds: number | undefined;
 	if (contest.freezeMinutes) {
-		const durationMinutes = (contestEndTime.getTime() - startTimeMs) / 60000;
-		freezeTimeMinutes = durationMinutes - contest.freezeMinutes;
+		const durationSeconds = Math.floor((contestEndTime.getTime() - startTimeMs) / 1000);
+		freezeTimeSeconds = durationSeconds - contest.freezeMinutes * 60;
 	}
+
+	// Track ANIGMA task scores per team/problem (for calculating cumulative best scores)
+	// Map<teamId, Map<problemId, { task1Max: number, task2Max: number }>>
+	const anigmaBestScores = new Map<
+		number,
+		Map<number, { task1Max: number; task2Max: number }>
+	>();
 
 	for (const sub of submissionsList) {
 		const subTime = new Date(sub.createdAt);
-		const timeMinutes = Math.floor((subTime.getTime() - startTimeMs) / 60000);
+		const timeSeconds = Math.floor((subTime.getTime() - startTimeMs) / 1000);
 
 		// Get problem type
 		const problemInfo = contestProblemsList.find((p) => p.problemId === sub.problemId);
@@ -153,14 +162,46 @@ export async function getSpotboardData(contestId: number): Promise<SpotboardConf
 			else result = "No";
 		}
 
+		// Calculate anigmaDetails for ANIGMA problems
+		let anigmaDetails: SpotboardRun["anigmaDetails"] = undefined;
+		if (problemType === "anigma" && sub.anigmaTaskType && sub.verdict === "accepted") {
+			// Get or create team/problem score tracker
+			let teamScores = anigmaBestScores.get(sub.userId);
+			if (!teamScores) {
+				teamScores = new Map();
+				anigmaBestScores.set(sub.userId, teamScores);
+			}
+
+			let problemScores = teamScores.get(sub.problemId);
+			if (!problemScores) {
+				problemScores = { task1Max: 0, task2Max: 0 };
+				teamScores.set(sub.problemId, problemScores);
+			}
+
+			// Update max scores based on task type
+			if (sub.anigmaTaskType === 1) {
+				problemScores.task1Max = Math.max(problemScores.task1Max, sub.score ?? 0);
+			} else if (sub.anigmaTaskType === 2) {
+				problemScores.task2Max = Math.max(problemScores.task2Max, sub.score ?? 0);
+			}
+
+			// Set anigmaDetails with current cumulative best scores
+			anigmaDetails = {
+				task1Score: problemScores.task1Max,
+				task2Score: problemScores.task2Max,
+				editDistance: sub.editDistance ?? null,
+			};
+		}
+
 		spotboardRuns.push({
 			id: sub.id,
 			teamId: sub.userId,
 			problemId: sub.problemId,
-			time: timeMinutes,
+			time: timeSeconds,
 			result: result,
 			score: sub.score ?? undefined,
 			problemType: problemType,
+			anigmaDetails: anigmaDetails,
 		});
 	}
 
@@ -171,7 +212,7 @@ export async function getSpotboardData(contestId: number): Promise<SpotboardConf
 		problems: spotboardProblems,
 		teams: spotboardTeams,
 		runs: spotboardRuns,
-		freezeTime: freezeTimeMinutes,
+		freezeTime: freezeTimeSeconds,
 	};
 }
 
