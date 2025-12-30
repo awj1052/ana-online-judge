@@ -136,10 +136,13 @@ pub async fn process_anigma_job(
 
         // make run file=input.txt
         // 주의: sandbox 내부에서는 상대 경로로 접근해야 함
+        // Python 심볼릭 링크 생성 후 make 실행 (python 명령이 없을 경우를 대비)
+        // /usr/bin에는 쓰기 권한이 없을 수 있으므로 현재 디렉토리에 링크를 만들고 PATH에 추가
         let input_arg = "file=input.txt".to_string();
+        let make_cmd = format!("mkdir -p bin && ln -sf /usr/bin/python3 bin/python 2>/dev/null; export PATH=\"$PWD/bin:$PATH\"; make -s run {}", input_arg);
 
         let run_spec = ExecutionSpec::new(temp_dir.path())
-            .with_command(vec!["make".to_string(), "run".to_string(), input_arg])
+            .with_command(vec!["sh".to_string(), "-c".to_string(), make_cmd])
             .with_limits(ExecutionLimits {
                 time_ms: job.time_limit,
                 memory_mb: job.memory_limit,
@@ -404,11 +407,12 @@ pub async fn process_anigma_task1_job(
 
     // 5. A: make run file=input.bin
     let input_arg = format!("file={}", input_filename);
+    let make_cmd_a = format!("mkdir -p bin && ln -sf /usr/bin/python3 bin/python 2>/dev/null; export PATH=\"$PWD/bin:$PATH\"; make -s run {}", input_arg);
     let run_spec_a = ExecutionSpec::new(code_a_dir.path())
         .with_command(vec![
-            "make".to_string(),
-            "run".to_string(),
-            input_arg.clone(),
+            "sh".to_string(),
+            "-c".to_string(),
+            make_cmd_a,
         ])
         .with_limits(ExecutionLimits {
             time_ms: job.time_limit,
@@ -425,8 +429,9 @@ pub async fn process_anigma_task1_job(
     );
 
     // 6. B: make run file=input.bin
+    let make_cmd_b = format!("mkdir -p bin && ln -sf /usr/bin/python3 bin/python 2>/dev/null; export PATH=\"$PWD/bin:$PATH\"; make -s run {}", input_arg);
     let run_spec_b = ExecutionSpec::new(code_b_dir.path())
-        .with_command(vec!["make".to_string(), "run".to_string(), input_arg])
+        .with_command(vec!["sh".to_string(), "-c".to_string(), make_cmd_b])
         .with_limits(ExecutionLimits {
             time_ms: job.time_limit,
             memory_mb: job.memory_limit,
