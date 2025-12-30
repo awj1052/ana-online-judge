@@ -17,6 +17,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getContestStatus } from "@/lib/contest-utils";
+import { ContestTime } from "@/components/contests/contest-time";
 
 export async function generateMetadata({
 	params,
@@ -36,16 +37,6 @@ export async function generateMetadata({
 		title: contest.title,
 		description: contest.description || undefined,
 	};
-}
-
-function formatDate(date: Date) {
-	return new Intl.DateTimeFormat("ko-KR", {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-	}).format(date);
 }
 
 function getStatusBadge(status: string) {
@@ -81,10 +72,10 @@ export default async function ContestDetailPage({ params }: { params: Promise<{ 
 	const userProblemStatuses =
 		session?.user?.id && isRegistered
 			? await getUserProblemStatuses(
-					contest.problems.map((p) => p.problem.id),
-					parseInt(session.user.id, 10),
-					contestId
-			  )
+				contest.problems.map((p) => p.problem.id),
+				parseInt(session.user.id, 10),
+				contestId
+			)
 			: new Map<number, { solved: boolean; score: number | null }>();
 
 	return (
@@ -103,11 +94,15 @@ export default async function ContestDetailPage({ params }: { params: Promise<{ 
 						<div className="grid gap-4 md:grid-cols-2">
 							<div>
 								<p className="text-sm text-muted-foreground">시작 시간</p>
-								<p className="font-medium">{formatDate(contest.startTime)}</p>
+								<p className="font-medium">
+									<ContestTime date={contest.startTime} />
+								</p>
 							</div>
 							<div>
 								<p className="text-sm text-muted-foreground">종료 시간</p>
-								<p className="font-medium">{formatDate(contest.endTime)}</p>
+								<p className="font-medium">
+									<ContestTime date={contest.endTime} />
+								</p>
 							</div>
 							<div>
 								<p className="text-sm text-muted-foreground">패널티</p>
