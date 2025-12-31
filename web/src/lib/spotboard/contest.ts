@@ -86,7 +86,7 @@ export class TeamProblemStatus {
 	getSolvedTime(): number | null {
 		if (this.isAnigma()) {
 			let maxTask1Score = 0;
-			let maxTask2Score = 0;
+			let maxTask2EditDistance = 0;
 			let maxTask1Time = 0;
 			let maxTask2Time = 0;
 
@@ -99,16 +99,18 @@ export class TeamProblemStatus {
 						maxTask1Time = Math.min(maxTask1Time, run.time);
 					}
 
-					if (run.anigmaDetails.task2Score > maxTask2Score) {
-						maxTask2Score = run.anigmaDetails.task2Score;
+					if (run.anigmaDetails.editDistance === null) continue;
+					// edit distance가 작아야 점수가 높음
+					if (run.anigmaDetails.editDistance < maxTask2EditDistance) {
+						maxTask2EditDistance = run.anigmaDetails.editDistance;
 						maxTask2Time = run.time;
-					} else if (run.anigmaDetails.task2Score === maxTask2Score) {
+					} else if (run.anigmaDetails.editDistance === maxTask2EditDistance) {
 						maxTask2Time = Math.min(maxTask2Time, run.time);
 					}
 				}
 			}
 
-			if (maxTask1Score > 0 || maxTask2Score > 0) {
+			if (maxTask1Score > 0 || maxTask2EditDistance > 0) {
 				return Math.max(maxTask1Time, maxTask2Time);
 			}
 			return null;
