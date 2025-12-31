@@ -186,7 +186,23 @@ export default function AnigmaPage() {
 											모든 테스트케이스에 대해 <code>make run file=input.txt</code> 실행
 										</li>
 										<li>모든 테스트케이스 통과 시 기본 50점 획득</li>
-										<li>원본 코드와의 편집 거리(Levenshtein Distance) 계산</li>
+										<li>
+											원본 코드와의 편집 거리(Levenshtein Distance) 계산
+											<ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
+												<li>
+													편집 거리 계산에는 다음 확장자를 가진 소스 파일만 포함됩니다:{" "}
+													<code className="bg-muted px-1 rounded">cpp</code>,{" "}
+													<code className="bg-muted px-1 rounded">c</code>,{" "}
+													<code className="bg-muted px-1 rounded">h</code>,{" "}
+													<code className="bg-muted px-1 rounded">hpp</code>,{" "}
+													<code className="bg-muted px-1 rounded">cc</code>,{" "}
+													<code className="bg-muted px-1 rounded">cxx</code>,{" "}
+													<code className="bg-muted px-1 rounded">java</code>,{" "}
+													<code className="bg-muted px-1 rounded">py</code>
+												</li>
+												<li>zip 파일 내 모든 하위 디렉토리를 재귀적으로 탐색하여 해당 확장자 파일을 읽습니다</li>
+											</ul>
+										</li>
 									</ol>
 								</div>
 								<Separator />

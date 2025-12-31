@@ -86,7 +86,7 @@ export class TeamProblemStatus {
 	getSolvedTime(): number | null {
 		if (this.isAnigma()) {
 			let maxTask1Score = 0;
-			let maxTask2EditDistance = 0;
+			let maxTask2EditDistance = Infinity;
 			let maxTask1Time = 0;
 			let maxTask2Time = 0;
 
