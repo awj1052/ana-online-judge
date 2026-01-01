@@ -3,6 +3,7 @@ use crate::executer::{execute_sandboxed, ExecutionLimits, ExecutionSpec};
 use crate::languages;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaygroundJob {
@@ -18,6 +19,11 @@ pub struct PlaygroundJob {
     pub stdin_input: Option<String>,
     /// 파일 입력 내용 (Makefile 실행 시, input.txt로 저장됨)
     pub file_input: Option<String>,
+    /// ANIGMA 실행 모드 (make build -> make run file=...)
+    #[serde(default)]
+    pub anigma_mode: bool,
+    /// ANIGMA 파일 이름 (anigma_mode가 true일 때 사용)
+    pub anigma_file_name: Option<String>,
     pub time_limit: u32,   // ms (기본 5000)
     pub memory_limit: u32, // MB (기본 512)
 }
@@ -38,6 +44,14 @@ pub struct PlaygroundResult {
     pub time_ms: u32,
     pub memory_kb: u32,
     pub compile_output: Option<String>,
+    /// Files created during execution (e.g., from redirects like > test.out)
+    pub created_files: Vec<CreatedFile>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreatedFile {
+    pub path: String,
+    pub content: String,
 }
 
 /// 파일 확장자로 언어 감지
@@ -82,6 +96,64 @@ enum RunType {
     Unknown,
 }
 
+/// Check if a file path is safe (no path traversal)
+fn is_safe_path(path: &str) -> bool {
+    // Reject absolute paths
+    if path.starts_with('/') {
+        return false;
+    }
+    // Reject paths with .. components
+    if path.contains("..") {
+        return false;
+    }
+    // Reject empty path
+    if path.is_empty() {
+        return false;
+    }
+    true
+}
+
+/// Get list of files in a directory recursively (relative to base_dir)
+fn list_files_in_dir(base_dir: &std::path::Path) -> Result<HashSet<String>> {
+    let mut files = HashSet::new();
+    
+    fn walk_dir(dir: &std::path::Path, base: &std::path::Path, files: &mut HashSet<String>) -> Result<()> {
+        if !dir.exists() {
+            return Ok(());
+        }
+        let entries = std::fs::read_dir(dir)?;
+        for entry in entries {
+            let entry = entry?;
+            let path = entry.path();
+            let metadata = entry.metadata()?;
+            
+            if metadata.is_dir() {
+                walk_dir(&path, base, files)?;
+            } else if metadata.is_file() {
+                // Get relative path from base_dir
+                if let Ok(rel_path) = path.strip_prefix(base) {
+                    if let Some(path_str) = rel_path.to_str() {
+                        // Normalize path separators to forward slashes
+                        let normalized = path_str.replace('\\', "/");
+                        // Remove leading ./ if present
+                        let normalized = normalized.strip_prefix("./").unwrap_or(&normalized);
+                        files.insert(normalized.to_string());
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    
+    walk_dir(base_dir, base_dir, &mut files)?;
+    Ok(files)
+}
+
+/// Normalize file path for consistent comparison
+fn normalize_path(path: &str) -> String {
+    path.replace('\\', "/").trim_start_matches("./").to_string()
+}
+
 pub async fn process_playground_job(job: &PlaygroundJob) -> Result<PlaygroundResult> {
     let temp_dir = tempfile::tempdir()?;
 
@@ -112,6 +184,7 @@ pub async fn process_playground_job(job: &PlaygroundJob) -> Result<PlaygroundRes
             time_ms: 0,
             memory_kb: 0,
             compile_output: None,
+            created_files: vec![],
         }),
     }
 }
@@ -161,6 +234,7 @@ async fn process_single_file(
                 time_ms: 0,
                 memory_kb: 0,
                 compile_output: compile_result.message,
+                created_files: vec![],
             });
         }
         None
@@ -191,15 +265,24 @@ async fn process_single_file(
 
     let exit_code = result.exit_code();
 
+    // Filter out Java info messages from stderr
+    let stderr = result
+        .stderr
+        .lines()
+        .filter(|line| !line.trim().starts_with("Picked up JAVA_TOOL_OPTIONS"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
     Ok(PlaygroundResult {
         session_id: job.session_id.clone(),
         success: result.is_success(),
         stdout: result.stdout,
-        stderr: result.stderr,
+        stderr,
         exit_code,
         time_ms: result.time_ms,
         memory_kb: result.memory_kb,
         compile_output,
+        created_files: vec![], // Single file execution doesn't create files
     })
 }
 
@@ -226,61 +309,107 @@ async fn process_makefile(
 
     let build_result = execute_sandboxed(&build_spec).await?;
 
+    // Filter out Java info messages from stderr
+    let build_stderr = build_result
+        .stderr
+        .lines()
+        .filter(|line| !line.trim().starts_with("Picked up JAVA_TOOL_OPTIONS"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
     if !build_result.is_success() {
         return Ok(PlaygroundResult {
             session_id: job.session_id.clone(),
             success: false,
             stdout: build_result.stdout.clone(),
-            stderr: build_result.stderr.clone(),
+            stderr: build_stderr.clone(),
             exit_code: build_result.exit_code(),
             time_ms: 0,
             memory_kb: 0,
-            compile_output: Some(build_result.stderr),
+            compile_output: Some(build_stderr),
+            created_files: vec![],
         });
     }
 
     // 2. 입력 파일 생성 (작업 디렉토리에)
+    let file_name = if job.anigma_mode {
+        // ANIGMA 모드: anigma_file_name 사용 (기본값: sample.in)
+        job.anigma_file_name.as_deref().unwrap_or("sample.in")
+    } else {
+        // 일반 모드: input.txt 사용
+        "input.txt"
+    };
+
+    // Save file list before run (before writing input file, to exclude it from created files)
+    let files_before = list_files_in_dir(&work_dir)?;
+
+    // Write input file (this will be in files_before, so it won't be detected as new)
     if let Some(file_input) = &job.file_input {
-        let input_path = work_dir.join("input.txt");
+        let input_path = work_dir.join(file_name);
         std::fs::write(&input_path, file_input)?;
     }
 
-    // 3. make run file=input.txt
-    // Note: execute_sandboxed runs in a sandbox, so "input.txt" must be available inside.
-    // execute_sandboxed copies work_dir content into the sandbox.
-    // However, the command arguments need to be correct relative to the sandbox execution.
-    // Since we write input.txt to work_dir, it will be at the root of the sandbox work dir.
-    // We should pass file=input.txt (relative path) or absolute path inside sandbox.
-    // Usually relative path works if CWD is correct.
-
-    // Important: execute_sandboxed copies files FROM host work_dir TO sandbox work_dir.
-    // The previous step (make build) might have produced a binary.
-    // We used `with_copy_out_dir(&work_dir)` in build step, so the binary should be back in host work_dir.
-    // So the next `execute_sandboxed` will pick it up.
-
+    // 3. make run file={file_name}
     let run_spec = ExecutionSpec::new(&work_dir)
         .with_command(vec![
             "make".to_string(),
             "run".to_string(),
-            "file=input.txt".to_string(),
+            format!("file={}", file_name),
         ])
         .with_limits(ExecutionLimits {
             time_ms: job.time_limit,
             memory_mb: job.memory_limit,
-        });
+        })
+        .with_copy_out_dir(&work_dir); // Copy output files (e.g., test.out) back to work_dir
 
     let run_result = execute_sandboxed(&run_spec).await?;
 
+    // Get file list after run
+    let files_after = list_files_in_dir(&work_dir)?;
+    
+    // Find newly created files (with path traversal protection)
+    let created_files: Vec<CreatedFile> = files_after
+        .difference(&files_before)
+        .filter(|path| {
+            // Normalize path and check if safe
+            let normalized = normalize_path(path);
+            is_safe_path(&normalized)
+        })
+        .filter_map(|rel_path| {
+            let normalized_path = normalize_path(rel_path);
+            let full_path = work_dir.join(&normalized_path);
+            if full_path.is_file() {
+                std::fs::read_to_string(&full_path)
+                    .ok()
+                    .map(|content| CreatedFile {
+                        path: normalized_path,
+                        content,
+                    })
+            } else {
+                None
+            }
+        })
+        .collect();
+
     let exit_code = run_result.exit_code();
+
+    // Filter out Java info messages from stderr
+    let stderr = run_result
+        .stderr
+        .lines()
+        .filter(|line| !line.trim().starts_with("Picked up JAVA_TOOL_OPTIONS"))
+        .collect::<Vec<_>>()
+        .join("\n");
 
     Ok(PlaygroundResult {
         session_id: job.session_id.clone(),
         success: run_result.is_success(),
         stdout: run_result.stdout,
-        stderr: run_result.stderr,
+        stderr,
         exit_code,
         time_ms: run_result.time_ms,
         memory_kb: run_result.memory_kb,
         compile_output: None,
+        created_files,
     })
 }

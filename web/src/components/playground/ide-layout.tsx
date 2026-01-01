@@ -44,6 +44,8 @@ export function IDELayout({ sessionId, initialFiles }: IDELayoutProps) {
 		initialFiles.length > 0 ? [initialFiles[0].path] : []
 	);
 	const [input, setInput] = useState("");
+	const [anigmaMode, setAnigmaMode] = useState(false); // ANIGMA 실행 모드
+	const [anigmaFileName, setAnigmaFileName] = useState("sample.in"); // ANIGMA 파일 이름
 	const [output, setOutput] = useState<{
 		stdout: string;
 		stderr: string;
@@ -56,15 +58,39 @@ export function IDELayout({ sessionId, initialFiles }: IDELayoutProps) {
 	// 현재 선택된 파일이 실행 가능한지
 	const canRun = useMemo(() => isExecutableFile(activeFile), [activeFile]);
 
-	// 입력 패널 라벨 (Makefile이면 input.txt, 아니면 stdin)
-	const inputLabel = useMemo(
-		() => (isMakefile(activeFile) ? "input.txt (파일 입력)" : "stdin (표준 입력)"),
-		[activeFile]
-	);
+	// Makefile인지 확인
+	const isMakefileSelected = useMemo(() => isMakefile(activeFile), [activeFile]);
 
-	const handleRefresh = () => {
-		// Trigger a re-fetch by reloading the page or updating state
-		window.location.reload();
+	// 입력 패널 라벨
+	const inputLabel = useMemo(() => {
+		if (isMakefileSelected) {
+			return anigmaMode ? "파일 이름 (ANIGMA 모드)" : "input.txt (파일 입력)";
+		}
+		return "stdin (표준 입력)";
+	}, [isMakefileSelected, anigmaMode]);
+
+	const handleRefresh = async () => {
+		// Re-fetch files by calling API
+		try {
+			const response = await fetch(`/api/playground/sessions/${sessionId}/files`);
+			if (response.ok) {
+				const data = await response.json();
+				if (data.files) {
+					setFiles(data.files);
+					// Update open tabs if needed
+					const currentTabs = new Set(openTabs);
+					data.files.forEach((f: PlaygroundFile) => {
+						if (!currentTabs.has(f.path)) {
+							// New file created, don't auto-open it
+						}
+					});
+				}
+			}
+		} catch (error) {
+			console.error("Failed to refresh files:", error);
+			// Fallback to page reload
+			window.location.reload();
+		}
 	};
 
 	const handleRun = async () => {
@@ -93,7 +119,8 @@ export function IDELayout({ sessionId, initialFiles }: IDELayoutProps) {
 				body: JSON.stringify({
 					sessionId,
 					targetPath: activeFile, // 현재 선택된 파일을 실행
-					input,
+					input: isMakefileSelected && anigmaMode ? anigmaFileName : input,
+					anigmaMode: isMakefileSelected && anigmaMode,
 				}),
 			});
 
@@ -114,6 +141,11 @@ export function IDELayout({ sessionId, initialFiles }: IDELayoutProps) {
 					memoryKb: result.memory_kb,
 					compileOutput: result.compile_output,
 				});
+
+				// Refresh file list if files were created
+				if (result.created_files && result.created_files.length > 0) {
+					await handleRefresh();
+				}
 			}
 		} catch (_error) {
 			setOutput({
@@ -211,7 +243,42 @@ export function IDELayout({ sessionId, initialFiles }: IDELayoutProps) {
 						<Panel defaultSize={40}>
 							<PanelGroup direction="horizontal">
 								<Panel defaultSize={50}>
-									<InputPanel value={input} onChange={setInput} label={inputLabel} />
+									{isMakefileSelected ? (
+										<div className="h-full flex flex-col border rounded-md overflow-hidden bg-background">
+											<div className="p-2 bg-muted/30 border-b">
+												<label className="flex items-center gap-2 text-xs font-semibold">
+													<input
+														type="checkbox"
+														checked={anigmaMode}
+														onChange={(e) => setAnigmaMode(e.target.checked)}
+														className="h-4 w-4"
+													/>
+													ANIGMA 모드
+												</label>
+											</div>
+											{anigmaMode ? (
+												<div className="flex-1 p-4 flex flex-col gap-2">
+													<label className="text-xs font-semibold text-muted-foreground">
+														파일 이름:
+													</label>
+													<input
+														type="text"
+														value={anigmaFileName}
+														onChange={(e) => setAnigmaFileName(e.target.value)}
+														className="px-3 py-2 border rounded-md font-mono text-sm"
+														placeholder="sample.in"
+													/>
+													<p className="text-xs text-muted-foreground">
+														실행: make build → make run file={anigmaFileName || "sample.in"}
+													</p>
+												</div>
+											) : (
+												<InputPanel value={input} onChange={setInput} label={inputLabel} />
+											)}
+										</div>
+									) : (
+										<InputPanel value={input} onChange={setInput} label={inputLabel} />
+									)}
 								</Panel>
 
 								<PanelResizeHandle className="w-1 bg-border hover:bg-primary transition-colors" />

@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
 	const {
 		sessionId,
 		targetPath, // 실행할 파일 경로 (Makefile 또는 소스 파일)
-		input, // stdin (단일 파일) 또는 file_input (Makefile)
+		input, // stdin (단일 파일) 또는 file_input (Makefile) 또는 anigmaFileName
+		anigmaMode, // ANIGMA 실행 모드 (make build -> make run file=...)
 	} = await request.json();
 
 	// 세션 파일 조회
@@ -49,7 +50,9 @@ export async function POST(request: NextRequest) {
 			content: f.content,
 		})),
 		stdin_input: isMakefile ? null : input, // 단일 파일 실행 시
-		file_input: isMakefile ? input : null, // Makefile 실행 시
+		file_input: isMakefile && !anigmaMode ? input : null, // Makefile 실행 시 (일반 모드)
+		anigma_mode: isMakefile && anigmaMode, // ANIGMA 실행 모드
+		anigma_file_name: isMakefile && anigmaMode ? input : null, // ANIGMA 파일 이름
 		time_limit: 5000, // 5초
 		memory_limit: 512, // 512MB
 		result_key: resultKey,
@@ -66,5 +69,22 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "Execution timeout" }, { status: 408 });
 	}
 
-	return NextResponse.json(JSON.parse(result[1]));
+	const executionResult = JSON.parse(result[1]);
+
+	// Save created files to playground session
+	if (executionResult.created_files && executionResult.created_files.length > 0) {
+		const { savePlaygroundFile } = await import("@/actions/playground");
+
+		// Save each created file (ignore errors to not fail the whole request)
+		for (const file of executionResult.created_files) {
+			try {
+				await savePlaygroundFile(sessionId, file.path, file.content);
+			} catch (error) {
+				console.error(`Failed to save created file ${file.path}:`, error);
+				// Continue with other files
+			}
+		}
+	}
+
+	return NextResponse.json(executionResult);
 }
