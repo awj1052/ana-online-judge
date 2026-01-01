@@ -40,19 +40,73 @@ export async function POST(request: NextRequest) {
 	// 결과 키 생성
 	const resultKey = `playground:result:${sessionId}:${Date.now()}`;
 
+	// Encode input to base64 if provided (일반 모드만)
+	let file_input_base64: string | null = null;
+	let file_input_is_binary = false;
+
+	if (isMakefile && !anigmaMode && input) {
+		// Makefile 일반 모드: input을 base64로 인코딩 (항상 텍스트)
+		file_input_base64 = Buffer.from(input, 'utf-8').toString('base64');
+		file_input_is_binary = false;
+	}
+
+	// ANIGMA 모드: playground session에서 파일 찾기 및 검증
+	if (isMakefile && anigmaMode) {
+		const anigmaFileName = input || "sample.in";
+		const anigmaFile = playgroundSession.files.find((f: { path: string }) => f.path === anigmaFileName);
+
+		if (!anigmaFile) {
+			return NextResponse.json(
+				{ error: `파일을 찾을 수 없습니다: ${anigmaFileName}` },
+				{ status: 404 }
+			);
+		}
+	}
+
+	// 모든 파일을 base64로 인코딩 (텍스트/바이너리 구분 없음)
+	const { db } = await import("@/db");
+	const { playgroundFiles } = await import("@/db/schema");
+	const { eq } = await import("drizzle-orm");
+
+	const dbFiles = await db
+		.select()
+		.from(playgroundFiles)
+		.where(eq(playgroundFiles.sessionId, sessionId));
+
+	const { downloadFile } = await import("@/lib/storage");
+
+	const filesWithContent = await Promise.all(
+		dbFiles.map(async (dbFile) => {
+			try {
+				const buffer = await downloadFile(dbFile.minioPath);
+				// 모든 파일을 base64로 인코딩
+				return {
+					path: dbFile.path,
+					content: buffer.toString("base64"),
+					is_binary: false, // 플래그는 유지하지만 항상 false (호환성)
+				};
+			} catch (error) {
+				console.error(`Failed to read file ${dbFile.path}:`, error);
+				return {
+					path: dbFile.path,
+					content: "",
+					is_binary: false,
+				};
+			}
+		})
+	);
+
 	// Job 생성
 	const job = {
 		job_type: "playground",
 		session_id: sessionId,
 		target_path: targetPath,
-		files: playgroundSession.files.map((f: { path: string; content: string }) => ({
-			path: f.path,
-			content: f.content,
-		})),
-		stdin_input: isMakefile ? null : input, // 단일 파일 실행 시
-		file_input: isMakefile && !anigmaMode ? input : null, // Makefile 실행 시 (일반 모드)
+		files: filesWithContent,
+		stdin_input: isMakefile ? null : input, // 단일 파일 실행 시 (텍스트만)
+		file_input_base64: file_input_base64, // Makefile 일반 모드만 (base64 인코딩)
+		file_input_is_binary: file_input_is_binary,
 		anigma_mode: isMakefile && anigmaMode, // ANIGMA 실행 모드
-		anigma_file_name: isMakefile && anigmaMode ? input : null, // ANIGMA 파일 이름
+		anigma_file_name: isMakefile && anigmaMode ? (input || "sample.in") : null, // ANIGMA 파일 이름
 		time_limit: 5000, // 5초
 		memory_limit: 512, // 512MB
 		result_key: resultKey,
@@ -73,12 +127,23 @@ export async function POST(request: NextRequest) {
 
 	// Save created files to playground session
 	if (executionResult.created_files && executionResult.created_files.length > 0) {
-		const { savePlaygroundFile } = await import("@/actions/playground");
+		const { savePlaygroundFileBinary } = await import("@/actions/playground");
 
 		// Save each created file (ignore errors to not fail the whole request)
 		for (const file of executionResult.created_files) {
 			try {
-				await savePlaygroundFile(sessionId, file.path, file.content);
+				// Decode base64 content
+				const contentBuffer = Buffer.from(file.content_base64, "base64");
+
+				if (file.is_binary) {
+					// Binary file: save as binary
+					await savePlaygroundFileBinary(sessionId, file.path, contentBuffer);
+				} else {
+					// Text file: convert to string and save
+					const contentString = contentBuffer.toString("utf-8");
+					const { savePlaygroundFile } = await import("@/actions/playground");
+					await savePlaygroundFile(sessionId, file.path, contentString);
+				}
 			} catch (error) {
 				console.error(`Failed to save created file ${file.path}:`, error);
 				// Continue with other files

@@ -2,6 +2,7 @@ use crate::compiler::compile_in_sandbox;
 use crate::executer::{execute_sandboxed, ExecutionLimits, ExecutionSpec};
 use crate::languages;
 use anyhow::Result;
+use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -18,7 +19,11 @@ pub struct PlaygroundJob {
     /// stdin 입력 (단일 파일 실행 시)
     pub stdin_input: Option<String>,
     /// 파일 입력 내용 (Makefile 실행 시, input.txt로 저장됨)
-    pub file_input: Option<String>,
+    /// Base64 인코딩된 문자열 (바이너리 지원)
+    pub file_input_base64: Option<String>,
+    /// 파일 입력이 바이너리인지 여부
+    #[serde(default)]
+    pub file_input_is_binary: bool,
     /// ANIGMA 실행 모드 (make build -> make run file=...)
     #[serde(default)]
     pub anigma_mode: bool,
@@ -31,7 +36,11 @@ pub struct PlaygroundJob {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlaygroundFile {
     pub path: String,
+    /// 파일 내용 (텍스트는 직접 문자열, 바이너리는 base64 인코딩)
     pub content: String,
+    /// 파일이 바이너리인지 여부 (바이너리면 content는 base64)
+    #[serde(default)]
+    pub is_binary: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -51,7 +60,10 @@ pub struct PlaygroundResult {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreatedFile {
     pub path: String,
-    pub content: String,
+    /// File content as base64-encoded string (for binary files)
+    pub content_base64: String,
+    /// Whether this is a binary file
+    pub is_binary: bool,
 }
 
 /// 파일 확장자로 언어 감지
@@ -157,13 +169,17 @@ fn normalize_path(path: &str) -> String {
 pub async fn process_playground_job(job: &PlaygroundJob) -> Result<PlaygroundResult> {
     let temp_dir = tempfile::tempdir()?;
 
-    // 1. 모든 파일 생성
+    // 1. 모든 파일 생성 (모든 파일은 base64로 인코딩되어 있음)
     for file in &job.files {
         let file_path = temp_dir.path().join(&file.path);
         if let Some(parent) = file_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        std::fs::write(&file_path, &file.content)?;
+        // 모든 파일을 base64 디코딩
+        let bytes = general_purpose::STANDARD
+            .decode(&file.content)
+            .map_err(|e| anyhow::anyhow!("Failed to decode base64 file content for {}: {}", file.path, e))?;
+        std::fs::write(&file_path, bytes)?;
     }
 
     // 2. 실행 타입 결정
@@ -331,23 +347,41 @@ async fn process_makefile(
         });
     }
 
-    // 2. 입력 파일 생성 (작업 디렉토리에)
-    let file_name = if job.anigma_mode {
-        // ANIGMA 모드: anigma_file_name 사용 (기본값: sample.in)
-        job.anigma_file_name.as_deref().unwrap_or("sample.in")
-    } else {
-        // 일반 모드: input.txt 사용
-        "input.txt"
-    };
-
     // Save file list before run (before writing input file, to exclude it from created files)
     let files_before = list_files_in_dir(&work_dir)?;
 
-    // Write input file (this will be in files_before, so it won't be detected as new)
-    if let Some(file_input) = &job.file_input {
-        let input_path = work_dir.join(file_name);
-        std::fs::write(&input_path, file_input)?;
-    }
+    // 2. 입력 파일 생성 (작업 디렉토리에)
+    let file_name = if job.anigma_mode {
+        // ANIGMA 모드: playground session의 파일 사용
+        let file_name = job.anigma_file_name.as_deref().unwrap_or("sample.in");
+        
+        // playground session의 files에서 해당 파일 찾기
+        let anigma_file = job.files.iter().find(|f| f.path == file_name);
+        
+        if let Some(file) = anigma_file {
+            let input_path = work_dir.join(file_name);
+            // 모든 파일은 base64로 인코딩되어 있으므로 디코딩
+            let bytes = general_purpose::STANDARD
+                .decode(&file.content)
+                .map_err(|e| anyhow::anyhow!("Failed to decode base64 file content for {}: {}", file_name, e))?;
+            std::fs::write(&input_path, bytes)?;
+        } else {
+            return Err(anyhow::anyhow!("ANIGMA 파일을 찾을 수 없습니다: {}", file_name));
+        }
+        
+        file_name.to_string()
+    } else {
+        // 일반 모드: input.txt에 입력 저장
+        if let Some(file_input_base64) = &job.file_input_base64 {
+            let input_path = work_dir.join("input.txt");
+            // Decode base64 to bytes
+            let bytes = general_purpose::STANDARD
+                .decode(file_input_base64)
+                .map_err(|e| anyhow::anyhow!("Failed to decode base64 input: {}", e))?;
+            std::fs::write(&input_path, bytes)?;
+        }
+        "input.txt".to_string()
+    };
 
     // 3. make run file={file_name}
     let run_spec = ExecutionSpec::new(&work_dir)
@@ -379,12 +413,29 @@ async fn process_makefile(
             let normalized_path = normalize_path(rel_path);
             let full_path = work_dir.join(&normalized_path);
             if full_path.is_file() {
-                std::fs::read_to_string(&full_path)
-                    .ok()
-                    .map(|content| CreatedFile {
-                        path: normalized_path,
-                        content,
-                    })
+                // Try to read as binary first
+                if let Ok(bytes) = std::fs::read(&full_path) {
+                    // Check if file is binary (contains null bytes or non-UTF8 sequences)
+                    let is_binary = bytes.contains(&0) || std::str::from_utf8(&bytes).is_err();
+                    
+                    if is_binary {
+                        // Binary file: encode as base64
+                        Some(CreatedFile {
+                            path: normalized_path,
+                            content_base64: general_purpose::STANDARD.encode(&bytes),
+                            is_binary: true,
+                        })
+                    } else {
+                        // Text file: also encode as base64 for consistency (can decode to string)
+                        Some(CreatedFile {
+                            path: normalized_path,
+                            content_base64: general_purpose::STANDARD.encode(&bytes),
+                            is_binary: false,
+                        })
+                    }
+                } else {
+                    None
+                }
             } else {
                 None
             }

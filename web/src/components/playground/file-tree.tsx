@@ -104,24 +104,15 @@ export function FileTree({
 	const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
 	const [lastSelectedPath, setLastSelectedPath] = useState<string>("");
 
-	// Create dialog
 	const [createDialogType, setCreateDialogType] = useState<CreateDialogType>(null);
 	const [createDialogFolder, setCreateDialogFolder] = useState<string>("__root__");
 	const [newItemName, setNewItemName] = useState("");
-
-	// Rename dialog
 	const [renameDialogPath, setRenameDialogPath] = useState<string>("");
 	const [renameNewName, setRenameNewName] = useState("");
-
-	// Extract ZIP dialog
 	const [extractDialogPath, setExtractDialogPath] = useState<string>("");
 	const [extractConflicts, setExtractConflicts] = useState<string[]>([]);
-
-	// File upload
 	const fileUploadRef = useRef<HTMLInputElement>(null);
 	const [uploadTargetFolder, setUploadTargetFolder] = useState<string>("");
-
-	// Convert flat files to tree
 	const tree = useMemo(() => {
 		const root: Node[] = [];
 
@@ -134,7 +125,6 @@ export function FileTree({
 				currentPath = currentPath ? `${currentPath}/${part}` : part;
 				const isFile = index === parts.length - 1;
 
-				// .gitkeep 파일은 노드로 추가하지 않음
 				if (isFile && part === ".gitkeep") {
 					return;
 				}
@@ -157,7 +147,6 @@ export function FileTree({
 			});
 		});
 
-		// Sort: folders first, then files, alphabetically
 		const sortNodes = (nodes: Node[]) => {
 			nodes.sort((a, b) => {
 				if (a.type === b.type) return a.name.localeCompare(b.name);
@@ -198,7 +187,6 @@ export function FileTree({
 	};
 
 	const handleNodeClick = (path: string, event: React.MouseEvent, isFolder: boolean) => {
-		// Ctrl/Cmd + Click: Toggle selection
 		if (event.ctrlKey || event.metaKey) {
 			event.preventDefault();
 			const newSelected = new Set(selectedPaths);
@@ -212,9 +200,7 @@ export function FileTree({
 			if (!isFolder) {
 				onSelect(path);
 			}
-		}
-		// Shift + Click: Range selection
-		else if (event.shiftKey && lastSelectedPath) {
+		} else if (event.shiftKey && lastSelectedPath) {
 			event.preventDefault();
 			const lastIndex = flatPaths.indexOf(lastSelectedPath);
 			const currentIndex = flatPaths.indexOf(path);
@@ -227,9 +213,7 @@ export function FileTree({
 			if (!isFolder) {
 				onSelect(path);
 			}
-		}
-		// Normal click
-		else {
+		} else {
 			setSelectedPaths(new Set([path]));
 			setLastSelectedPath(path);
 			if (isFolder) {
@@ -243,7 +227,6 @@ export function FileTree({
 	const handleCreateItem = async () => {
 		if (!newItemName) return;
 
-		// 파일/폴더 이름 검증
 		if (newItemName.includes("/") || newItemName.includes("\\")) {
 			toast.error("파일 이름에 슬래시(/ \\)를 사용할 수 없습니다.");
 			return;
@@ -254,7 +237,6 @@ export function FileTree({
 			return;
 		}
 
-		// __root__를 빈 문자열로 변환
 		const targetFolder = createDialogFolder === "__root__" ? "" : createDialogFolder;
 
 		let path = newItemName;
@@ -263,7 +245,6 @@ export function FileTree({
 		}
 
 		if (createDialogType === "file") {
-			// Check duplicate
 			if (files.some((f) => f.path === path)) {
 				toast.error("이미 존재하는 파일입니다.");
 				return;
@@ -323,10 +304,8 @@ export function FileTree({
 
 		try {
 			for (const path of paths) {
-				// If it's a folder, delete all files within (including .gitkeep)
 				const filesToDelete = files.filter((f) => f.path === path || f.path.startsWith(`${path}/`));
 
-				// Delete all files sequentially
 				for (const f of filesToDelete) {
 					await onDeleteFile(f.path);
 				}
@@ -343,12 +322,10 @@ export function FileTree({
 		if (paths.length === 0) return;
 
 		try {
-			// Expand paths to include folder contents
 			const expandedPaths = new Set<string>();
 			paths.forEach((path) => {
 				const node = findNode(tree, path);
 				if (node?.type === "folder") {
-					// Add all files in this folder
 					for (const f of files.filter((f) => f.path.startsWith(`${path}/`) || f.path === path)) {
 						expandedPaths.add(f.path);
 					}
@@ -378,7 +355,33 @@ export function FileTree({
 		const uploadedFiles = Array.from(e.target.files || []) as File[];
 		if (uploadedFiles.length === 0) return;
 
-		// 중복 파일 확인
+		const binaryFiles: string[] = [];
+		for (const file of uploadedFiles) {
+			const fileName = file.name;
+			const path = uploadTargetFolder ? `${uploadTargetFolder}/${fileName}` : fileName;
+
+			if (isBinaryExtension(path)) {
+				binaryFiles.push(fileName);
+			} else {
+				const isBinary = await isBinaryFileContent(file);
+				if (isBinary) {
+					binaryFiles.push(fileName);
+				}
+			}
+		}
+
+		if (binaryFiles.length > 0) {
+			const continueUpload = confirm(
+				`다음 파일들은 바이너리 파일입니다:\n${binaryFiles.join(", ")}\n\n바이너리 파일은 편집할 수 없습니다. 계속 업로드하시겠습니까?`
+			);
+			if (!continueUpload) {
+				if (fileUploadRef.current) {
+					fileUploadRef.current.value = "";
+				}
+				return;
+			}
+		}
+
 		const conflicts: string[] = [];
 		for (const file of uploadedFiles) {
 			const fileName = file.name;
@@ -388,7 +391,6 @@ export function FileTree({
 			}
 		}
 
-		// 중복 파일이 있으면 확인
 		if (conflicts.length > 0) {
 			const overwrite = confirm(
 				`${conflicts.length}개 파일이 이미 존재합니다. 덮어쓰시겠습니까?`
@@ -401,7 +403,6 @@ export function FileTree({
 			}
 		}
 
-		// 모든 파일 업로드
 		let successCount = 0;
 		let failCount = 0;
 
@@ -410,14 +411,12 @@ export function FileTree({
 				const fileName = file.name;
 				const path = uploadTargetFolder ? `${uploadTargetFolder}/${fileName}` : fileName;
 
-				// 파일을 Base64로 읽기 (바이너리 파일 지원)
 				await new Promise<void>((resolve, reject) => {
 					const reader = new FileReader();
 
 					reader.onload = async (event) => {
 						try {
 							const content = event.target?.result as string;
-							// Base64 데이터로 업로드 (data:image/png;base64,... 형식)
 							await uploadSingleFile(sessionId, path, content, true);
 							successCount++;
 							resolve();
@@ -430,7 +429,6 @@ export function FileTree({
 						reject(new Error("파일 읽기에 실패했습니다."));
 					};
 
-					// 바이너리 파일을 Base64로 읽기
 					reader.readAsDataURL(file);
 				});
 			} catch (_error) {
@@ -438,7 +436,6 @@ export function FileTree({
 			}
 		}
 
-		// 결과 토스트 메시지
 		if (successCount > 0) {
 			onRefresh();
 			if (failCount === 0) {
@@ -450,7 +447,6 @@ export function FileTree({
 			toast.error("파일 업로드에 실패했습니다.");
 		}
 
-		// Reset input
 		if (fileUploadRef.current) {
 			fileUploadRef.current.value = "";
 		}
@@ -488,9 +484,53 @@ export function FileTree({
 
 	const isZipFile = (path: string) => path.toLowerCase().endsWith(".zip");
 
-	// 모든 폴더 경로 가져오기
+	const isBinaryExtension = (path: string): boolean => {
+		const ext = path.split(".").pop()?.toLowerCase();
+		const binaryExtensions = [
+			"png", "jpg", "jpeg", "gif", "bmp", "webp", "ico", "svg",
+			"mp3", "mp4", "avi", "mov", "wav", "flac", "ogg",
+			"zip", "tar", "gz", "bz2", "7z", "rar",
+			"exe", "dll", "so", "dylib", "bin",
+			"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+		];
+		return ext ? binaryExtensions.includes(ext) : false;
+	};
+
+	const isBinaryFileContent = async (file: File): Promise<boolean> => {
+		return new Promise((resolve) => {
+			const slice = file.slice(0, 512);
+			const reader = new FileReader();
+
+			reader.onload = (event) => {
+				try {
+					const arrayBuffer = event.target?.result as ArrayBuffer;
+					const uint8Array = new Uint8Array(arrayBuffer);
+
+					for (let i = 0; i < uint8Array.length; i++) {
+						if (uint8Array[i] === 0) {
+							resolve(true);
+							return;
+						}
+					}
+
+					const decoder = new TextDecoder("utf-8", { fatal: true });
+					decoder.decode(arrayBuffer);
+					resolve(false);
+				} catch {
+					resolve(true);
+				}
+			};
+
+			reader.onerror = () => {
+				resolve(isBinaryExtension(file.name));
+			};
+
+			reader.readAsArrayBuffer(slice);
+		});
+	};
+
 	const getAllFolders = useMemo(() => {
-		const folders: string[] = ["__root__"]; // 루트 포함
+		const folders: string[] = ["__root__"];
 		const collectFolders = (nodes: Node[], parentPath = "") => {
 			nodes.forEach((node) => {
 				if (node.type === "folder") {
@@ -699,7 +739,6 @@ export function FileTree({
 
 	return (
 		<div className="flex flex-col h-full bg-muted/10 border-r">
-			{/* Header */}
 			<div className="p-2 border-b flex items-center justify-between">
 				<span className="font-semibold text-sm">탐색기</span>
 				<div className="flex items-center gap-1">
@@ -722,7 +761,6 @@ export function FileTree({
 						<DropdownMenuContent align="end">
 							<DropdownMenuItem
 								onClick={() => {
-									// 현재 선택된 폴더가 있으면 그 폴더에, 없으면 루트에 생성
 									const selectedFolder = selectedPaths.size === 1 && Array.from(selectedPaths)[0];
 									const targetFolder =
 										selectedFolder && findNode(tree, selectedFolder)?.type === "folder"
@@ -736,7 +774,6 @@ export function FileTree({
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={() => {
-									// 현재 선택된 폴더가 있으면 그 폴더에, 없으면 루트에 생성
 									const selectedFolder = selectedPaths.size === 1 && Array.from(selectedPaths)[0];
 									const targetFolder =
 										selectedFolder && findNode(tree, selectedFolder)?.type === "folder"
@@ -750,12 +787,11 @@ export function FileTree({
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={() => {
-									// 현재 선택된 폴더가 있으면 그 폴더에, 없으면 루트에 업로드
 									const selectedFolder = selectedPaths.size === 1 && Array.from(selectedPaths)[0];
 									const targetFolder =
 										selectedFolder && findNode(tree, selectedFolder)?.type === "folder"
 											? selectedFolder
-											: ""; // 업로드는 실제로 빈 문자열을 사용 (handleFileUpload에서 처리)
+											: "";
 									setUploadTargetFolder(targetFolder);
 									fileUploadRef.current?.click();
 								}}
@@ -768,7 +804,6 @@ export function FileTree({
 				</div>
 			</div>
 
-			{/* File tree */}
 			<div className="flex-1 overflow-auto py-2">
 				{tree.map((node) => (
 					<FileNode key={node.id} node={node} level={0} />
@@ -778,10 +813,8 @@ export function FileTree({
 				)}
 			</div>
 
-			{/* Hidden file input for upload */}
 			<input ref={fileUploadRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
 
-			{/* Create File/Folder Dialog */}
 			<Dialog open={createDialogType !== null} onOpenChange={() => setCreateDialogType(null)}>
 				<DialogContent>
 					<DialogHeader>
@@ -831,7 +864,6 @@ export function FileTree({
 				</DialogContent>
 			</Dialog>
 
-			{/* Rename Dialog */}
 			<Dialog open={!!renameDialogPath} onOpenChange={() => setRenameDialogPath("")}>
 				<DialogContent>
 					<DialogHeader>
@@ -855,7 +887,6 @@ export function FileTree({
 				</DialogContent>
 			</Dialog>
 
-			{/* Extract ZIP Conflicts Dialog */}
 			<AlertDialog
 				open={extractDialogPath !== "" && extractConflicts.length > 0}
 				onOpenChange={() => {
