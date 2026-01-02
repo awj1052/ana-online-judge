@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { db } from "@/db";
@@ -20,6 +20,7 @@ export async function getSubmissions(options?: {
 	userId?: number;
 	problemId?: number;
 	contestId?: number;
+	excludeContestSubmissions?: boolean;
 }) {
 	const session = await auth();
 	const isAdmin = session?.user?.role === "admin";
@@ -40,7 +41,24 @@ export async function getSubmissions(options?: {
 		conditions.push(eq(submissions.contestId, options.contestId));
 	}
 
+	// If excludeContestSubmissions is true and user is not admin, filter at DB level
+	if (!isAdmin && options?.excludeContestSubmissions && currentUserId) {
+		// Show: own submissions OR non-contest public submissions
+		conditions.push(
+			or(
+				eq(submissions.userId, currentUserId),
+				and(
+					isNull(submissions.contestId),
+					eq(problems.isPublic, true)
+				)
+			)
+		);
+	}
+
 	const whereCondition = conditions.length > 0 ? and(...conditions) : undefined;
+
+	// If excludeContestSubmissions is true, DB already filtered - skip memory filtering
+	const alreadyFiltered = !isAdmin && options?.excludeContestSubmissions && currentUserId;
 
 	const [submissionsList, totalResult] = await Promise.all([
 		db
@@ -68,40 +86,48 @@ export async function getSubmissions(options?: {
 			.orderBy(desc(submissions.createdAt))
 			.limit(limit)
 			.offset(offset),
-		db.select({ count: count() }).from(submissions).where(whereCondition),
+		db
+			.select({ count: count() })
+			.from(submissions)
+			.innerJoin(problems, eq(submissions.problemId, problems.id))
+			.where(whereCondition),
 	]);
 
-	// Filter submissions based on problem visibility
-	let filteredSubmissions = submissionsList;
-
-	if (!isAdmin) {
-		// Get contest IDs that the user is participating in
-		const accessibleContestIds = currentUserId
-			? await db
-				.select({ contestId: contestParticipants.contestId })
-				.from(contestParticipants)
-				.where(eq(contestParticipants.userId, currentUserId))
-				.then((rows) => rows.map((r) => r.contestId))
-			: [];
-
-		// Filter: public problems OR user's own submissions OR submissions from contests user is participating in
-		filteredSubmissions = submissionsList.filter((sub) => {
-			// Public problems (non-contest submissions) - everyone can see
-			if (sub.contestId === null && sub.problemIsPublic) return true;
-
-			// Own submissions - always visible
-			if (currentUserId && sub.userId === currentUserId) return true;
-
-			// Contest submissions - only if user is participating in that contest
-			if (sub.contestId !== null && accessibleContestIds.includes(sub.contestId)) return true;
-
-			return false;
-		});
+	// If already filtered at DB level (excludeContestSubmissions) or admin, return directly
+	if (alreadyFiltered || isAdmin) {
+		return {
+			submissions: submissionsList,
+			total: totalResult[0].count,
+		};
 	}
+
+	// Filter submissions based on problem visibility for non-admin users
+	// Get contest IDs that the user is participating in
+	const accessibleContestIds = currentUserId
+		? await db
+			.select({ contestId: contestParticipants.contestId })
+			.from(contestParticipants)
+			.where(eq(contestParticipants.userId, currentUserId))
+			.then((rows) => rows.map((r) => r.contestId))
+		: [];
+
+	// Filter: public problems OR user's own submissions OR submissions from contests user is participating in
+	const filteredSubmissions = submissionsList.filter((sub) => {
+		// Own submissions - always visible
+		if (currentUserId && sub.userId === currentUserId) return true;
+
+		// Non-contest public submissions - everyone can see
+		if (sub.contestId === null && sub.problemIsPublic) return true;
+
+		// Contest submissions - only if user is participating in that contest
+		if (sub.contestId !== null && accessibleContestIds.includes(sub.contestId)) return true;
+
+		return false;
+	});
 
 	return {
 		submissions: filteredSubmissions,
-		total: isAdmin ? totalResult[0].count : filteredSubmissions.length,
+		total: filteredSubmissions.length, // Note: This is page-level count, not accurate total
 	};
 }
 

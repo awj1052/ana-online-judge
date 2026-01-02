@@ -216,10 +216,10 @@ export default function AnigmaPage() {
 											</p>
 											<ul className="list-disc list-inside space-y-1 text-muted-foreground">
 												<li>
-													<strong>R_max</strong>: 모든 참가자의 best submission 중 최대 편집 거리
+													<strong>R_max</strong>: 모든 참가자의 Best Submission 중 최대 편집 거리
 												</li>
 												<li>
-													<strong>R_min</strong>: 모든 참가자의 best submission 중 최소 편집 거리
+													<strong>R_min</strong>: 모든 참가자의 Best Submission 중 최소 편집 거리
 												</li>
 												<li>
 													<strong>edit_distance</strong>: 현재 제출의 편집 거리
@@ -292,17 +292,20 @@ export default function AnigmaPage() {
 									<h3 className="font-semibold text-lg">Best Submission 선정</h3>
 									<div className="space-y-2 text-sm">
 										<p className="text-muted-foreground">
-											스코어보드에는 각 유저의 <strong>best submission</strong>이 표시됩니다:
+											스코어보드에는 각 유저의 <strong>Best Submission</strong>이 표시됩니다:
 										</p>
 										<div className="bg-muted/50 p-3 rounded space-y-2">
 											<div className="flex items-start gap-2">
-												<span className="font-semibold">Task 2:</span>
+												<span className="font-semibold">Task 2</span>
 												<ul className="list-disc list-inside space-y-1 text-muted-foreground">
 													<li>
-														편집 거리가 <strong>가장 작은</strong> 제출 중
+														정답인 제출
 													</li>
 													<li>
-														점수가 <strong>가장 높은</strong> 제출
+														편집 거리가 <strong>가장 작은</strong> 제출
+													</li>
+													<li>
+														시간이 <strong>가장 빠른</strong> 제출
 													</li>
 												</ul>
 											</div>
@@ -455,8 +458,7 @@ export default function AnigmaPage() {
 											해야 합니다.
 										</li>
 										<li>
-											입출력 코드를 제외한 비즈니스 로직에 존재하므로 입출력 코드를 <strong className="text-destructive">임의로 수정하는 행위는 금지</strong>
-											됩니다.
+											<strong>입출력을 제외한 비즈니스 로직에 결함이 존재하므로 입출력 코드를 임의로 수정하는 행위는 권장하지 않습니다.</strong>
 										</li>
 									</ul>
 								</div>

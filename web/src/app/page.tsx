@@ -52,7 +52,7 @@ export default async function HomePage() {
 								</Button>
 							</Link>
 							<Link href="/anigma">
-								<Button size="lg" variant="secondary">
+								<Button size="lg" variant="outline" className="border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white">
 									ANIGMA 알아보기
 									<ArrowRight className="ml-2 h-4 w-4" />
 								</Button>
