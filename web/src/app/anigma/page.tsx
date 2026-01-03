@@ -475,9 +475,6 @@ export default function AnigmaPage() {
 										<li>
 											출력 결과에 <code className="bg-muted px-1 rounded">[Error]</code> 태그가 포함된 모든 예외 처리는 의도된 예외 처리로 간주됩니다.
 										</li>
-										<li>
-											해당 출력은 <strong className="text-destructive">Task 1의 정답으로 인정되지 않습니다</strong>.
-										</li>
 									</ul>
 								</div>
 
