@@ -77,4 +77,3 @@ export function RemoveParticipantButton({
 		</Dialog>
 	);
 }
-

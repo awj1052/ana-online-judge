@@ -1,14 +1,14 @@
 import {
+	AlertTriangle,
 	ArrowRight,
+	Ban,
 	Calculator,
+	Clock,
 	FileCode,
 	Shield,
 	Trophy,
 	Users,
 	Zap,
-	AlertTriangle,
-	Clock,
-	Ban,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -76,8 +76,8 @@ export default function AnigmaPage() {
 										목표
 									</h3>
 									<p className="text-muted-foreground">
-										문제에서 제공하는 코드와 채점 서버 내부의 정답 코드가 다른
-										출력을 내는 입력 파일을 찾아 제출하세요.
+										문제에서 제공하는 코드와 채점 서버 내부의 정답 코드가 다른 출력을 내는 입력
+										파일을 찾아 제출하세요.
 									</p>
 								</div>
 								<div>
@@ -103,7 +103,10 @@ export default function AnigmaPage() {
 							<div className="bg-muted/50 p-4 rounded-lg">
 								<h4 className="font-semibold mb-2">채점 방식</h4>
 								<ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
-									<li>제출한 입력 파일을 문제에서 제공하는 코드와 채점 서버 내부의 정답 코드를 각각 실행</li>
+									<li>
+										제출한 입력 파일을 문제에서 제공하는 코드와 채점 서버 내부의 정답 코드를 각각
+										실행
+									</li>
 									<li>
 										두 코드의 출력이 <strong>다르면</strong> 정답 (30점)
 									</li>
@@ -200,7 +203,10 @@ export default function AnigmaPage() {
 													<code className="bg-muted px-1 rounded">java</code>,{" "}
 													<code className="bg-muted px-1 rounded">py</code>
 												</li>
-												<li>zip 파일 내 모든 하위 디렉토리를 재귀적으로 탐색하여 해당 확장자 파일을 읽습니다</li>
+												<li>
+													zip 파일 내 모든 하위 디렉토리를 재귀적으로 탐색하여 해당 확장자 파일을
+													읽습니다
+												</li>
 											</ul>
 										</li>
 									</ol>
@@ -298,9 +304,7 @@ export default function AnigmaPage() {
 											<div className="flex items-start gap-2">
 												<span className="font-semibold">Task 2</span>
 												<ul className="list-disc list-inside space-y-1 text-muted-foreground">
-													<li>
-														정답인 제출
-													</li>
+													<li>정답인 제출</li>
 													<li>
 														편집 거리가 <strong>가장 작은</strong> 제출
 													</li>
@@ -363,11 +367,14 @@ export default function AnigmaPage() {
 									</h3>
 									<ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground ml-6">
 										<li>
-											참가자는 대회 입장 시 운영진으로부터 제공받은 <strong>대회 전용 계정</strong>을
-											통해서만 참가해야 합니다.
+											참가자는 대회 입장 시 운영진으로부터 제공받은 <strong>대회 전용 계정</strong>
+											을 통해서만 참가해야 합니다.
 										</li>
 										<li>
-											대회 계정의 <strong className="text-destructive">공유, 양도, 중복 사용은 엄격히 금지</strong>
+											대회 계정의{" "}
+											<strong className="text-destructive">
+												공유, 양도, 중복 사용은 엄격히 금지
+											</strong>
 											됩니다.
 										</li>
 									</ul>
@@ -385,7 +392,11 @@ export default function AnigmaPage() {
 										<li>참가자는 본인 지참 노트북을 사용하여 문제 풀이를 진행합니다.</li>
 										<li>인터넷 검색 및 IDE 사용은 허용됩니다.</li>
 										<li>
-											단, <strong className="text-destructive">ChatGPT, GitHub Copilot, Bing AI 등 자동으로 소스 코드를 생성하는 AI 기반 서비스의 사용은 금지</strong>
+											단,{" "}
+											<strong className="text-destructive">
+												ChatGPT, GitHub Copilot, Bing AI 등 자동으로 소스 코드를 생성하는 AI 기반
+												서비스의 사용은 금지
+											</strong>
 											됩니다.
 										</li>
 										<li>
@@ -405,7 +416,8 @@ export default function AnigmaPage() {
 									</h3>
 									<ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground ml-6">
 										<li>
-											<strong>Windows 사용자는 Makefile 실행 시 WSL 환경에서 실행</strong>해야 합니다.
+											<strong>Windows 사용자는 Makefile 실행 시 WSL 환경에서 실행</strong>해야
+											합니다.
 										</li>
 										<li>채점 서버 환경과 로컬 실행 환경은 차이가 있을 수 있습니다.</li>
 									</ul>
@@ -420,10 +432,18 @@ export default function AnigmaPage() {
 										지원하는 언어
 									</h3>
 									<ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground ml-6">
-										<li><strong>C</strong>: C17</li>
-										<li><strong>C++</strong>: C++20</li>
-										<li><strong>Java</strong>: JDK 17</li>
-										<li><strong>Python</strong>: 3.11.2</li>
+										<li>
+											<strong>C</strong>: C17
+										</li>
+										<li>
+											<strong>C++</strong>: C++20
+										</li>
+										<li>
+											<strong>Java</strong>: JDK 17
+										</li>
+										<li>
+											<strong>Python</strong>: 3.11.2
+										</li>
 									</ul>
 								</div>
 
@@ -452,13 +472,19 @@ export default function AnigmaPage() {
 										입출력 및 채점 방식
 									</h3>
 									<ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground ml-6">
-										<li>본 대회는 <strong>출력 기반 채점</strong>으로 진행됩니다.</li>
 										<li>
-											입출력 형식은 <strong>공백, 줄바꿈을 포함하여 문제에서 요구한 형식과 정확히 일치</strong>
+											본 대회는 <strong>출력 기반 채점</strong>으로 진행됩니다.
+										</li>
+										<li>
+											입출력 형식은{" "}
+											<strong>공백, 줄바꿈을 포함하여 문제에서 요구한 형식과 정확히 일치</strong>
 											해야 합니다.
 										</li>
 										<li>
-											<strong>입출력을 제외한 비즈니스 로직에 결함이 존재하므로 입출력 코드를 임의로 수정하는 행위는 권장하지 않습니다.</strong>
+											<strong>
+												입출력을 제외한 비즈니스 로직에 결함이 존재하므로 입출력 코드를 임의로
+												수정하는 행위는 권장하지 않습니다.
+											</strong>
 										</li>
 									</ul>
 								</div>
@@ -473,7 +499,8 @@ export default function AnigmaPage() {
 									</h3>
 									<ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground ml-6">
 										<li>
-											출력 결과에 <code className="bg-muted px-1 rounded">[Error]</code> 태그가 포함된 모든 예외 처리는 의도된 예외 처리로 간주됩니다.
+											출력 결과에 <code className="bg-muted px-1 rounded">[Error]</code> 태그가
+											포함된 모든 예외 처리는 의도된 예외 처리로 간주됩니다.
 										</li>
 									</ul>
 								</div>
@@ -528,10 +555,12 @@ export default function AnigmaPage() {
 									</h3>
 									<ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground ml-6">
 										<li>
-											문제 오류 또는 시스템 장애 발생 시 <strong>운영진에게 즉시 문의</strong>해야 합니다.
+											문제 오류 또는 시스템 장애 발생 시 <strong>운영진에게 즉시 문의</strong>해야
+											합니다.
 										</li>
 										<li>
-											모든 최종 판단은 운영진에게 있으며, 필요 시 재채점 또는 규칙이 보완될 수 있습니다.
+											모든 최종 판단은 운영진에게 있으며, 필요 시 재채점 또는 규칙이 보완될 수
+											있습니다.
 										</li>
 									</ul>
 								</div>

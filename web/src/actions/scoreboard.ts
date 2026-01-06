@@ -139,10 +139,7 @@ export async function getSpotboardData(contestId: number): Promise<SpotboardConf
 
 	// Track ANIGMA task scores per team/problem (for calculating cumulative best scores)
 	// Map<teamId, Map<problemId, { task1Max: number, task2Max: number }>>
-	const anigmaBestScores = new Map<
-		number,
-		Map<number, { task1Max: number; task2Max: number }>
-	>();
+	const anigmaBestScores = new Map<number, Map<number, { task1Max: number; task2Max: number }>>();
 
 	for (const sub of submissionsList) {
 		const subTime = new Date(sub.createdAt);
@@ -163,7 +160,7 @@ export async function getSpotboardData(contestId: number): Promise<SpotboardConf
 		}
 
 		// Calculate anigmaDetails for ANIGMA problems
-		let anigmaDetails: SpotboardRun["anigmaDetails"] = undefined;
+		let anigmaDetails: SpotboardRun["anigmaDetails"];
 		if (problemType === "anigma" && sub.anigmaTaskType && sub.verdict === "accepted") {
 			// Get or create team/problem score tracker
 			let teamScores = anigmaBestScores.get(sub.userId);

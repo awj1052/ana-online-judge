@@ -164,8 +164,7 @@ export async function POST(request: Request) {
 
 			// Check if file is likely text (by extension or content-type)
 			const isTextFile =
-				file.type.startsWith("text/") ||
-				/\.(txt|in|out|ans|answer)$/i.test(file.name);
+				file.type.startsWith("text/") || /\.(txt|in|out|ans|answer)$/i.test(file.name);
 
 			if (isTextFile) {
 				// Normalize line endings: CRLF -> LF, CR -> LF

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getContestById, isUserRegistered } from "@/actions/contests";
 import { getUserProblemStatuses } from "@/actions/submissions";
 import { auth } from "@/auth";
+import { ContestTime } from "@/components/contests/contest-time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getContestStatus } from "@/lib/contest-utils";
-import { ContestTime } from "@/components/contests/contest-time";
 
 export async function generateMetadata({
 	params,
@@ -73,10 +73,10 @@ export default async function ContestDetailPage({ params }: { params: Promise<{ 
 	const userProblemStatuses =
 		session?.user?.id && isRegistered
 			? await getUserProblemStatuses(
-				contest.problems.map((p) => p.problem.id),
-				parseInt(session.user.id, 10),
-				contestId
-			)
+					contest.problems.map((p) => p.problem.id),
+					parseInt(session.user.id, 10),
+					contestId
+				)
 			: new Map<number, { solved: boolean; score: number | null }>();
 
 	return (
@@ -145,7 +145,9 @@ export default async function ContestDetailPage({ params }: { params: Promise<{ 
 						</CardHeader>
 						<CardContent>
 							{contest.problems.length === 0 ? (
-								<div className="text-center py-12 text-muted-foreground">등록된 문제가 없습니다.</div>
+								<div className="text-center py-12 text-muted-foreground">
+									등록된 문제가 없습니다.
+								</div>
 							) : (
 								<div className="rounded-md border">
 									<Table>
@@ -191,7 +193,9 @@ export default async function ContestDetailPage({ params }: { params: Promise<{ 
 															</div>
 														</TableCell>
 														<TableCell>
-															<Badge variant="secondary">{cp.problem.problemType.toUpperCase()}</Badge>
+															<Badge variant="secondary">
+																{cp.problem.problemType.toUpperCase()}
+															</Badge>
 														</TableCell>
 														<TableCell className="text-right">{cp.problem.maxScore}</TableCell>
 													</TableRow>

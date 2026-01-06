@@ -20,7 +20,7 @@ export class Run {
 			task2Score: number;
 			editDistance: number | null;
 		}
-	) { }
+	) {}
 
 	isJudgedYes(): boolean {
 		return this.result === "Yes" || this.result === "accepted";
@@ -49,7 +49,7 @@ export class TeamProblemStatus {
 	constructor(
 		public problemId: number,
 		public problemType?: "icpc" | "special_judge" | "anigma"
-	) { }
+	) {}
 
 	addRun(run: Run) {
 		this.runs.push(run);
@@ -164,7 +164,7 @@ export class TeamStatus {
 	problemStatuses: Map<number, TeamProblemStatus> = new Map();
 	rank = 1;
 
-	constructor(public teamId: number) { }
+	constructor(public teamId: number) {}
 
 	getProblemStatus(
 		problemId: number,

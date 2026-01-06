@@ -144,14 +144,14 @@ export function BulkUploadForm({ problemId }: BulkUploadFormProps) {
 			<div className="space-y-2">
 				<Label>테스트케이스 파일</Label>
 				<div className="flex items-center gap-2">
-				<Input
-					type="file"
-					multiple
-					onChange={handleFilesChange}
-					disabled={isSubmitting}
-					className="hidden"
-					id="bulkFiles"
-				/>
+					<Input
+						type="file"
+						multiple
+						onChange={handleFilesChange}
+						disabled={isSubmitting}
+						className="hidden"
+						id="bulkFiles"
+					/>
 					<Button
 						type="button"
 						variant="outline"

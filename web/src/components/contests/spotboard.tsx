@@ -332,14 +332,11 @@ export function Spotboard({ config, isAwardMode = false }: SpotboardProps) {
 								<div className={`team-rank suffix-${suffix}`}>{rank}</div>
 
 								{/* Score and Penalty must come BEFORE results for float: right to work correctly */}
-								{hasAnigma && totalScore !== null && (
-									<div className="team-score">{totalScore}</div>
-								)}
+								{hasAnigma && totalScore !== null && <div className="team-score">{totalScore}</div>}
 								<div className="team-penalty">
-									{hasAnigma && maxSolvedTime !== null ?
-										Math.floor(maxSolvedTime / 60)
-										: Math.floor(penalty / 60)
-									}
+									{hasAnigma && maxSolvedTime !== null
+										? Math.floor(maxSolvedTime / 60)
+										: Math.floor(penalty / 60)}
 								</div>
 
 								<div className="results">

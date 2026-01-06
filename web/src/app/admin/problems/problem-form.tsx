@@ -84,15 +84,13 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 	const [allowedLanguages, setAllowedLanguages] = useState<Language[]>(
 		problem?.allowedLanguages
 			? (problem.allowedLanguages.filter((lang): lang is Language =>
-				["c", "cpp", "python", "java"].includes(lang)
-			) as Language[])
+					["c", "cpp", "python", "java"].includes(lang)
+				) as Language[])
 			: []
 	);
 	const [referenceCodeFile, setReferenceCodeFile] = useState<File | null>(null);
 	const [solutionCodeFile, setSolutionCodeFile] = useState<File | null>(null);
-	const [maxScore, setMaxScore] = useState<number>(
-		problem?.maxScore || DEFAULT_MAX_SCORE
-	);
+	const [maxScore, setMaxScore] = useState<number>(problem?.maxScore || DEFAULT_MAX_SCORE);
 
 	const isEditing = !!problem;
 
@@ -236,9 +234,7 @@ export function ProblemForm({ problem }: ProblemFormProps) {
 								disabled={isSubmitting}
 							/>
 							{problemType === "anigma" && (
-								<p className="text-xs text-muted-foreground">
-									ANIGMA: 무조건 100점 만점으로 설정
-								</p>
+								<p className="text-xs text-muted-foreground">ANIGMA: 무조건 100점 만점으로 설정</p>
 							)}
 						</div>
 						<div className="space-y-2">

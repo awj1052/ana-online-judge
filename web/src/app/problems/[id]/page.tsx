@@ -41,10 +41,9 @@ export default async function ProblemDetailPage({ params }: Props) {
 		notFound();
 	}
 
-	const userProblemStatus =
-		session?.user?.id
-			? (await getUserProblemStatuses([problem.id], parseInt(session.user.id, 10))).get(problem.id)
-			: undefined;
+	const userProblemStatus = session?.user?.id
+		? (await getUserProblemStatuses([problem.id], parseInt(session.user.id, 10))).get(problem.id)
+		: undefined;
 	const isSolved = userProblemStatus?.solved ?? false;
 	const score = userProblemStatus?.score;
 

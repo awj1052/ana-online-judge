@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getContests } from "@/actions/contests";
+import { ContestTime } from "@/components/contests/contest-time";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,7 +13,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getContestStatus } from "@/lib/contest-utils";
-import { ContestTime } from "@/components/contests/contest-time";
 
 export const metadata: Metadata = {
 	title: "대회 목록",

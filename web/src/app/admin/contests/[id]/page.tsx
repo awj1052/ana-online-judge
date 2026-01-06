@@ -3,11 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContestById } from "@/actions/contests";
 import { ContestForm } from "@/components/contests/contest-form";
+import { ContestTime } from "@/components/contests/contest-time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getContestStatus } from "@/lib/contest-utils";
-import { ContestTime } from "@/components/contests/contest-time";
 
 export async function generateMetadata({
 	params,

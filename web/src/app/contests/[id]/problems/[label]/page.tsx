@@ -5,8 +5,8 @@ import { notFound } from "next/navigation";
 import { getContestById } from "@/actions/contests";
 import { getProblemById } from "@/actions/problems";
 import { getUserProblemStatuses } from "@/actions/submissions";
-import { auth } from "@/auth";
 import { ProblemSubmitSection } from "@/app/problems/[id]/submit-section";
+import { auth } from "@/auth";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,12 +74,11 @@ export default async function ContestProblemPage({
 	}
 
 	const session = await auth();
-	const userProblemStatus =
-		session?.user?.id
-			? (await getUserProblemStatuses([problem.id], parseInt(session.user.id, 10), contestId)).get(
-					problem.id
-			  )
-			: undefined;
+	const userProblemStatus = session?.user?.id
+		? (await getUserProblemStatuses([problem.id], parseInt(session.user.id, 10), contestId)).get(
+				problem.id
+			)
+		: undefined;
 	const isSolved = userProblemStatus?.solved ?? false;
 	const score = userProblemStatus?.score;
 

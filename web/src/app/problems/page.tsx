@@ -37,13 +37,12 @@ export default async function ProblemsPage({
 	const totalPages = Math.ceil(total / 20);
 
 	const session = await auth();
-	const userProblemStatuses =
-		session?.user?.id
-			? await getUserProblemStatuses(
-					problems.map((p) => p.id),
-					parseInt(session.user.id, 10)
-			  )
-			: new Map<number, { solved: boolean; score: number | null }>();
+	const userProblemStatuses = session?.user?.id
+		? await getUserProblemStatuses(
+				problems.map((p) => p.id),
+				parseInt(session.user.id, 10)
+			)
+		: new Map<number, { solved: boolean; score: number | null }>();
 
 	return (
 		<div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -96,9 +95,7 @@ export default async function ProblemsPage({
 																<div className="flex items-center gap-1">
 																	<CheckCircle2 className="h-4 w-4 text-green-600" />
 																	{problem.problemType === "anigma" && score !== null && (
-																		<span className="text-sm text-muted-foreground">
-																			{score}점
-																		</span>
+																		<span className="text-sm text-muted-foreground">{score}점</span>
 																	)}
 																</div>
 															)}

@@ -76,9 +76,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 		try {
 			const fileBuffer = await downloadFile(problem.referenceCodePath);
 			// Create filename from problem title, replacing spaces with underscores and removing special characters
-			const sanitizedTitle = problem.title
-				.replace(/\s+/g, "_")
-				.replace(/[<>:"/\\|?*]/g, "");
+			const sanitizedTitle = problem.title.replace(/\s+/g, "_").replace(/[<>:"/\\|?*]/g, "");
 			const filename = `${sanitizedTitle}.zip`;
 			// Use UTF-8 encoding for proper handling of Korean characters
 			const encodedFilename = encodeURIComponent(filename);

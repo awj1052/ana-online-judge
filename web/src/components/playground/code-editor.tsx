@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-
 interface CodeEditorProps {
 	files: { path: string; content: string }[];
 	activeFile: string;
@@ -41,11 +40,39 @@ export function CodeEditor({
 	const isBinaryExtension = (path: string): boolean => {
 		const ext = path.split(".").pop()?.toLowerCase();
 		const binaryExtensions = [
-			"png", "jpg", "jpeg", "gif", "bmp", "webp", "ico", "svg",
-			"mp3", "mp4", "avi", "mov", "wav", "flac", "ogg",
-			"zip", "tar", "gz", "bz2", "7z", "rar",
-			"exe", "dll", "so", "dylib", "bin",
-			"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+			"png",
+			"jpg",
+			"jpeg",
+			"gif",
+			"bmp",
+			"webp",
+			"ico",
+			"svg",
+			"mp3",
+			"mp4",
+			"avi",
+			"mov",
+			"wav",
+			"flac",
+			"ogg",
+			"zip",
+			"tar",
+			"gz",
+			"bz2",
+			"7z",
+			"rar",
+			"exe",
+			"dll",
+			"so",
+			"dylib",
+			"bin",
+			"pdf",
+			"doc",
+			"docx",
+			"xls",
+			"xlsx",
+			"ppt",
+			"pptx",
 		];
 		return ext ? binaryExtensions.includes(ext) : false;
 	};

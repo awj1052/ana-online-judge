@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getContests } from "@/actions/contests";
+import { ContestTime } from "@/components/contests/contest-time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +15,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getContestStatus } from "@/lib/contest-utils";
-import { ContestTime } from "@/components/contests/contest-time";
 
 export const metadata: Metadata = {
 	title: "대회 관리",

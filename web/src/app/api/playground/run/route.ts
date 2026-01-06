@@ -46,14 +46,16 @@ export async function POST(request: NextRequest) {
 
 	if (isMakefile && !anigmaMode && input) {
 		// Makefile 일반 모드: input을 base64로 인코딩 (항상 텍스트)
-		file_input_base64 = Buffer.from(input, 'utf-8').toString('base64');
+		file_input_base64 = Buffer.from(input, "utf-8").toString("base64");
 		file_input_is_binary = false;
 	}
 
 	// ANIGMA 모드: playground session에서 파일 찾기 및 검증
 	if (isMakefile && anigmaMode) {
 		const anigmaFileName = input || "sample.in";
-		const anigmaFile = playgroundSession.files.find((f: { path: string }) => f.path === anigmaFileName);
+		const anigmaFile = playgroundSession.files.find(
+			(f: { path: string }) => f.path === anigmaFileName
+		);
 
 		if (!anigmaFile) {
 			return NextResponse.json(
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
 		file_input_base64: file_input_base64, // Makefile 일반 모드만 (base64 인코딩)
 		file_input_is_binary: file_input_is_binary,
 		anigma_mode: isMakefile && anigmaMode, // ANIGMA 실행 모드
-		anigma_file_name: isMakefile && anigmaMode ? (input || "sample.in") : null, // ANIGMA 파일 이름
+		anigma_file_name: isMakefile && anigmaMode ? input || "sample.in" : null, // ANIGMA 파일 이름
 		time_limit: 5000, // 5초
 		memory_limit: 512, // 512MB
 		result_key: resultKey,

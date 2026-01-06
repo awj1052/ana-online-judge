@@ -98,6 +98,9 @@ export async function recalculateContestBonus(contestId: number, problemId: numb
 		if (R_max === R_min) {
 			// All participants have same edit distance, give max bonus to all
 			bonus = ANIGMA_TASK2_BONUS;
+		} else if (sub.editDistance! >= R_max) {
+			// Worst edit distance, no bonus
+			bonus = 0;
 		} else {
 			const ratio = (R_max - sub.editDistance!) / (R_max - R_min);
 			bonus = Math.floor(ANIGMA_TASK2_BONUS * ratio ** K);

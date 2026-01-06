@@ -365,9 +365,7 @@ export function FileTree({
 		}
 
 		if (conflicts.length > 0) {
-			const overwrite = confirm(
-				`${conflicts.length}개 파일이 이미 존재합니다. 덮어쓰시겠습니까?`
-			);
+			const overwrite = confirm(`${conflicts.length}개 파일이 이미 존재합니다. 덮어쓰시겠습니까?`);
 			if (!overwrite) {
 				if (fileUploadRef.current) {
 					fileUploadRef.current.value = "";
@@ -460,11 +458,39 @@ export function FileTree({
 	const isBinaryExtension = (path: string): boolean => {
 		const ext = path.split(".").pop()?.toLowerCase();
 		const binaryExtensions = [
-			"png", "jpg", "jpeg", "gif", "bmp", "webp", "ico", "svg",
-			"mp3", "mp4", "avi", "mov", "wav", "flac", "ogg",
-			"zip", "tar", "gz", "bz2", "7z", "rar",
-			"exe", "dll", "so", "dylib", "bin",
-			"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+			"png",
+			"jpg",
+			"jpeg",
+			"gif",
+			"bmp",
+			"webp",
+			"ico",
+			"svg",
+			"mp3",
+			"mp4",
+			"avi",
+			"mov",
+			"wav",
+			"flac",
+			"ogg",
+			"zip",
+			"tar",
+			"gz",
+			"bz2",
+			"7z",
+			"rar",
+			"exe",
+			"dll",
+			"so",
+			"dylib",
+			"bin",
+			"pdf",
+			"doc",
+			"docx",
+			"xls",
+			"xlsx",
+			"ppt",
+			"pptx",
 		];
 		return ext ? binaryExtensions.includes(ext) : false;
 	};
@@ -786,7 +812,13 @@ export function FileTree({
 				)}
 			</div>
 
-			<input ref={fileUploadRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
+			<input
+				ref={fileUploadRef}
+				type="file"
+				multiple
+				className="hidden"
+				onChange={handleFileUpload}
+			/>
 
 			<Dialog open={createDialogType !== null} onOpenChange={() => setCreateDialogType(null)}>
 				<DialogContent>

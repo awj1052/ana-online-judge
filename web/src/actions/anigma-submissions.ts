@@ -4,14 +4,14 @@ import { eq } from "drizzle-orm";
 import JSZip from "jszip";
 import { db } from "@/db";
 import { problems, submissions, testcases } from "@/db/schema";
-import { getRedisClient } from "@/lib/redis";
-import { uploadFile } from "@/lib/storage";
 import {
+	ANIGMA_MAX_SCORE,
 	ANIGMA_TASK1_SCORE,
 	ANIGMA_TASK2_BASE_SCORE,
 	ANIGMA_TASK2_BONUS,
-	ANIGMA_MAX_SCORE,
 } from "@/lib/anigma-bonus";
+import { getRedisClient } from "@/lib/redis";
+import { uploadFile } from "@/lib/storage";
 
 const MAX_INPUT_FILE_SIZE = 1 * 1024 * 1024; // 1MB
 

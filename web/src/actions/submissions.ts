@@ -47,10 +47,7 @@ export async function getSubmissions(options?: {
 		conditions.push(
 			or(
 				eq(submissions.userId, currentUserId),
-				and(
-					isNull(submissions.contestId),
-					eq(problems.isPublic, true)
-				)
+				and(isNull(submissions.contestId), eq(problems.isPublic, true))
 			)
 		);
 	}
@@ -120,10 +117,10 @@ export async function getSubmissions(options?: {
 	// Get contest IDs that the user is participating in
 	const accessibleContestIds = currentUserId
 		? await db
-			.select({ contestId: contestParticipants.contestId })
-			.from(contestParticipants)
-			.where(eq(contestParticipants.userId, currentUserId))
-			.then((rows) => rows.map((r) => r.contestId))
+				.select({ contestId: contestParticipants.contestId })
+				.from(contestParticipants)
+				.where(eq(contestParticipants.userId, currentUserId))
+				.then((rows) => rows.map((r) => r.contestId))
 		: [];
 
 	// Filter: public problems OR user's own submissions OR submissions from contests user is participating in

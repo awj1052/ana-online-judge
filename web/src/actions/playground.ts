@@ -140,11 +140,7 @@ export async function savePlaygroundFile(sessionId: string, path: string, conten
 		.where(eq(playgroundSessions.id, sessionId));
 }
 
-export async function savePlaygroundFileBinary(
-	sessionId: string,
-	path: string,
-	content: Buffer
-) {
+export async function savePlaygroundFileBinary(sessionId: string, path: string, content: Buffer) {
 	await verifySessionOwnership(sessionId);
 
 	const minioPath = generatePlaygroundFilePath(sessionId, path);
@@ -176,12 +172,7 @@ export async function savePlaygroundFileBinary(
 	if (existingFile) {
 		await db
 			.delete(playgroundFiles)
-			.where(
-				and(
-					eq(playgroundFiles.sessionId, sessionId),
-					eq(playgroundFiles.path, path)
-				)
-			);
+			.where(and(eq(playgroundFiles.sessionId, sessionId), eq(playgroundFiles.path, path)));
 	}
 
 	// Upload new file
