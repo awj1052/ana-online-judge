@@ -164,7 +164,7 @@ export async function savePlaygroundFileBinary(sessionId: string, path: string, 
 	// Also delete the new path to ensure clean state
 	try {
 		await deleteFile(minioPath);
-	} catch (error) {
+	} catch (_error) {
 		// Ignore if file doesn't exist
 	}
 

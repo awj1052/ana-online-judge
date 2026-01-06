@@ -10,7 +10,7 @@ import { AnigmaSubmit } from "@/components/problems/anigma-submit";
 import { AnigmaTask1Submit } from "@/components/problems/anigma-task1-submit";
 import { CodeSubmit } from "@/components/problems/code-submit";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Language, ProblemType } from "@/db/schema";
 
 interface ProblemSubmitSectionProps {

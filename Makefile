@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down prod-up prod-down db-push reset
+.PHONY: dev-up dev-down prod-up prod-down db-migrate reset
 
 # 개발 환경
 dev-up:
@@ -7,13 +7,13 @@ dev-up:
 dev-down:
 	docker compose down
 
-dev-db-push:
-	cd web && pnpm db:push
+dev-db-migrate:
+	cd web && pnpm db:migrate
 
 dev-reset:
 	docker compose down -v
 	docker compose up -d --build
-	make dev-db-push
+	make dev-db-migrate
 
 # 프로덕션 환경
 prod-up:
@@ -22,7 +22,7 @@ prod-up:
 prod-down:
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod down
 
-prod-db-push:
+prod-db-migrate:
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile migrate run --rm --build migrate
 
 # prod-reset:

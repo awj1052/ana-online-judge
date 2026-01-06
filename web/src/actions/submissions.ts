@@ -471,7 +471,7 @@ export async function getUserProblemStatuses(
 	}
 
 	// Add non-ANIGMA scores
-	for (const [problemId, score] of nonAnigmaScores.entries()) {
+	for (const [problemId, _score] of nonAnigmaScores.entries()) {
 		statusMap.set(problemId, {
 			solved: true,
 			score: null, // Don't show score for non-ANIGMA

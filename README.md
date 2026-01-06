@@ -85,7 +85,7 @@ cp judge/.env.example judge/.env
 
 ```bash
 make dev-up
-make dev-db-push
+make dev-db-migrate
 ```
 
 4. **웹 서버 실행**
@@ -100,7 +100,7 @@ pnpm dev
 
 ```bash
 make prod-up
-make prod-db-push
+make prod-db-migrate
 ```
 
 ## 라이선스

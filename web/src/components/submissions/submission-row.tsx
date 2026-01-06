@@ -131,7 +131,7 @@ interface SubmissionTableHeaderProps {
 
 export function SubmissionTableHeader({
 	showDetail = true,
-	isAdmin = false,
+	isAdmin: _isAdmin = false,
 	canDownload = false,
 }: SubmissionTableHeaderProps) {
 	return (

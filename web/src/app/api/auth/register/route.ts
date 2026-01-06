@@ -50,6 +50,15 @@ export async function POST(request: Request) {
 			return NextResponse.json({ error: "이미 사용 중인 아이디입니다." }, { status: 400 });
 		}
 
+		// Check if email already exists (if email is provided)
+		if (email) {
+			const existingEmail = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
+			if (existingEmail.length > 0) {
+				return NextResponse.json({ error: "이미 사용 중인 이메일입니다." }, { status: 400 });
+			}
+		}
+
 		// Hash password
 		const hashedPassword = await hash(password, 12);
 

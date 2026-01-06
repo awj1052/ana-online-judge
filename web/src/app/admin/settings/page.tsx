@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { getRegistrationStatus } from "@/actions/settings";
+import { getGoogleRegistrationStatus, getRegistrationStatus } from "@/actions/settings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { serverEnv } from "@/lib/env";
+import { GoogleRegistrationToggle } from "./google-registration-toggle";
 import { RegistrationToggle } from "./registration-toggle";
 
 export const metadata: Metadata = {
@@ -8,7 +10,12 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminSettingsPage() {
-	const registrationOpen = await getRegistrationStatus();
+	const [registrationOpen, googleRegistrationOpen] = await Promise.all([
+		getRegistrationStatus(),
+		getGoogleRegistrationStatus(),
+	]);
+
+	const hasGoogleOAuth = !!(serverEnv.GOOGLE_CLIENT_ID && serverEnv.GOOGLE_CLIENT_SECRET);
 
 	return (
 		<div className="space-y-6">
@@ -23,8 +30,14 @@ export default async function AdminSettingsPage() {
 						<CardTitle>회원가입 설정</CardTitle>
 						<CardDescription>새로운 사용자의 회원가입 허용 여부를 설정합니다.</CardDescription>
 					</CardHeader>
-					<CardContent>
+					<CardContent className="space-y-6">
 						<RegistrationToggle initialEnabled={registrationOpen} />
+						{hasGoogleOAuth && (
+							<>
+								<div className="border-t" />
+								<GoogleRegistrationToggle initialEnabled={googleRegistrationOpen} />
+							</>
+						)}
 					</CardContent>
 				</Card>
 			</div>

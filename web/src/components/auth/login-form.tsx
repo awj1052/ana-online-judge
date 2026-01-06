@@ -16,12 +16,17 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GoogleSignInButton } from "./google-sign-in-button";
 
 interface LoginFormProps {
 	registrationOpen?: boolean;
+	googleRegistrationOpen?: boolean;
 }
 
-export function LoginForm({ registrationOpen = true }: LoginFormProps) {
+export function LoginForm({
+	registrationOpen = true,
+	googleRegistrationOpen = false,
+}: LoginFormProps) {
 	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -96,6 +101,19 @@ export function LoginForm({ registrationOpen = true }: LoginFormProps) {
 						{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 						로그인
 					</Button>
+					{googleRegistrationOpen && (
+						<>
+							<div className="relative">
+								<div className="absolute inset-0 flex items-center">
+									<span className="w-full border-t" />
+								</div>
+								<div className="relative flex justify-center text-xs uppercase">
+									<span className="bg-background px-2 text-muted-foreground">또는</span>
+								</div>
+							</div>
+							<GoogleSignInButton className="w-full" disabled={isLoading} />
+						</>
+					)}
 					{registrationOpen && (
 						<p className="text-sm text-muted-foreground text-center">
 							계정이 없으신가요?{" "}

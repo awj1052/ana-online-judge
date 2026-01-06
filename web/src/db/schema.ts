@@ -37,8 +37,8 @@ export const scoreboardTypeEnum = pgEnum("scoreboard_type", ["basic", "spotboard
 export const users = pgTable("users", {
 	id: serial("id").primaryKey(),
 	username: text("username").notNull().unique(), // 로그인용 아이디
-	email: text("email"), // 이메일 (선택)
-	password: text("password").notNull(), // bcrypt hashed
+	email: text("email").unique(), // 이메일 (선택, unique - null은 여러 개 가능)
+	password: text("password"), // bcrypt hashed (nullable for OAuth users)
 	name: text("name").notNull(),
 	role: userRoleEnum("role").default("user").notNull(),
 	rating: integer("rating").default(0),
@@ -46,6 +46,8 @@ export const users = pgTable("users", {
 	contestAccountOnly: boolean("contest_account_only").default(false), // Contest-only account
 	contestId: integer("contest_id"), // Will reference contests.id
 	isActive: boolean("is_active").default(true), // Account active status
+	authId: text("auth_id").unique(), // OAuth provider unique ID (e.g., Google ID)
+	authProvider: text("auth_provider"), // OAuth provider name (e.g., 'google', 'github')
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

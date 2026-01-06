@@ -4,12 +4,7 @@ import { eq } from "drizzle-orm";
 import JSZip from "jszip";
 import { db } from "@/db";
 import { problems, submissions, testcases } from "@/db/schema";
-import {
-	ANIGMA_MAX_SCORE,
-	ANIGMA_TASK1_SCORE,
-	ANIGMA_TASK2_BASE_SCORE,
-	ANIGMA_TASK2_BONUS,
-} from "@/lib/anigma-bonus";
+import { ANIGMA_TASK2_BASE_SCORE, ANIGMA_TASK2_BONUS } from "@/lib/anigma-bonus";
 import { getRedisClient } from "@/lib/redis";
 import { uploadFile } from "@/lib/storage";
 

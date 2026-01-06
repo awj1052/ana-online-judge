@@ -495,7 +495,7 @@ export function FileTree({
 		return ext ? binaryExtensions.includes(ext) : false;
 	};
 
-	const isBinaryFileContent = async (file: File): Promise<boolean> => {
+	const _isBinaryFileContent = async (file: File): Promise<boolean> => {
 		return new Promise((resolve) => {
 			const slice = file.slice(0, 512);
 			const reader = new FileReader();

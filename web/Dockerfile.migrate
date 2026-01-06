@@ -19,6 +19,6 @@ COPY src/db ./src/db
 COPY src/lib/env ./src/lib/env
 COPY tsconfig.json ./
 
-# 기본 명령어: db:push
-CMD ["pnpm", "run", "db:push"]
+# 기본 명령어: db:migrate
+CMD ["pnpm", "run", "db:migrate"]
 

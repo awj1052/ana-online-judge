@@ -2,10 +2,12 @@ import { count, eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { siteSettings, users } from "@/db/schema";
+import { serverEnv } from "./env";
 
 export const REGISTRATION_OPEN_KEY = "registration_open";
+export const GOOGLE_REGISTRATION_OPEN_KEY = "google_registration_open";
 
-// 회원가입 가능 여부 확인
+// 일반 회원가입 가능 여부 확인
 export async function isRegistrationOpen(): Promise<boolean> {
 	const setting = await db
 		.select()
@@ -14,6 +16,24 @@ export async function isRegistrationOpen(): Promise<boolean> {
 		.limit(1);
 
 	// 설정이 없으면 기본적으로 열려있음
+	if (setting.length === 0) return true;
+
+	return setting[0].value === "true";
+}
+
+// 구글 회원가입 가능 여부 확인
+export async function isGoogleRegistrationOpen(): Promise<boolean> {
+	const hasGoogleClientId = !!serverEnv.GOOGLE_CLIENT_ID;
+	const hasGoogleClientSecret = !!serverEnv.GOOGLE_CLIENT_SECRET;
+
+	if (!hasGoogleClientId || !hasGoogleClientSecret) return false;
+
+	const setting = await db
+		.select()
+		.from(siteSettings)
+		.where(eq(siteSettings.key, GOOGLE_REGISTRATION_OPEN_KEY))
+		.limit(1);
+
 	if (setting.length === 0) return true;
 
 	return setting[0].value === "true";

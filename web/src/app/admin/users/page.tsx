@@ -11,6 +11,8 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { CsvUserUpload } from "../settings/csv-user-upload";
+import { DeleteUserButton } from "./delete-user-button";
+import { PlaygroundToggle } from "./playground-toggle";
 import { RoleSelect } from "./role-select";
 
 export const metadata: Metadata = {
@@ -67,7 +69,9 @@ export default async function AdminUsersPage({
 										<TableHead>이메일</TableHead>
 										<TableHead className="w-[100px]">레이팅</TableHead>
 										<TableHead className="w-[120px]">권한</TableHead>
+										<TableHead className="w-[120px]">Playground</TableHead>
 										<TableHead className="w-[120px]">가입일</TableHead>
+										<TableHead className="w-[80px] text-center">작업</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
@@ -81,8 +85,17 @@ export default async function AdminUsersPage({
 											<TableCell>
 												<RoleSelect userId={user.id} currentRole={user.role} />
 											</TableCell>
+											<TableCell>
+												<PlaygroundToggle
+													userId={user.id}
+													initialAccess={user.playgroundAccess || false}
+												/>
+											</TableCell>
 											<TableCell className="text-muted-foreground">
 												{formatDate(user.createdAt)}
+											</TableCell>
+											<TableCell className="text-center">
+												<DeleteUserButton userId={user.id} username={user.username} />
 											</TableCell>
 										</TableRow>
 									))}

@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { submissions } from "@/db/schema";
 import { downloadFile } from "@/lib/storage";
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
 	try {
 		// Check authentication
 		const session = await auth();

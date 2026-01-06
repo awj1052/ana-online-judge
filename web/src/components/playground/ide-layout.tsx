@@ -237,10 +237,14 @@ export function IDELayout({ sessionId, initialFiles }: IDELayoutProps) {
 											</div>
 											{anigmaMode ? (
 												<div className="flex-1 p-4 flex flex-col gap-2">
-													<label className="text-xs font-semibold text-muted-foreground">
+													<label
+														htmlFor="anigma-file-name"
+														className="text-xs font-semibold text-muted-foreground"
+													>
 														파일 이름:
 													</label>
 													<input
+														id="anigma-file-name"
 														type="text"
 														value={anigmaFileName}
 														onChange={(e) => setAnigmaFileName(e.target.value)}

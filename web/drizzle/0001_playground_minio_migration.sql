@@ -9,11 +9,3 @@ ALTER TABLE playground_files DROP COLUMN IF EXISTS content;
 
 -- 3. minio_path 컬럼 추가
 ALTER TABLE playground_files ADD COLUMN IF NOT EXISTS minio_path TEXT NOT NULL;
-
-
-
-
-
-
-
-

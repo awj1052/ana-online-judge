@@ -189,7 +189,7 @@ export function Spotboard({ config, isAwardMode = false }: SpotboardProps) {
 
 			// Find pending problems (problems with hidden runs)
 			const pendingProblems: number[] = [];
-			for (const [problemId, pStatus] of teamStatus.problemStatuses) {
+			for (const [problemId, _pStatus] of teamStatus.problemStatuses) {
 				// Check if this problem has hidden runs
 				const hasHidden = hiddenRuns.some(
 					(r) => r.teamId === focusedTeamId && r.problemId === problemId
@@ -422,7 +422,7 @@ export function Spotboard({ config, isAwardMode = false }: SpotboardProps) {
 										if (resultScore !== null && isAnigma && isAccepted) {
 											if (resultScore < 80) {
 												scoreClass = "score-low";
-											} else if (resultScore == 100) {
+											} else if (resultScore === 100) {
 												scoreClass = "score-high";
 											} else {
 												scoreClass = "score-medium";

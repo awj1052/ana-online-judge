@@ -15,13 +15,19 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GoogleSignInButton } from "./google-sign-in-button";
 
 interface RegisterFormProps {
 	registrationOpen?: boolean;
 	isFirstUser?: boolean;
+	googleRegistrationOpen?: boolean;
 }
 
-export function RegisterForm({ registrationOpen = true, isFirstUser = false }: RegisterFormProps) {
+export function RegisterForm({
+	registrationOpen = true,
+	isFirstUser = false,
+	googleRegistrationOpen = false,
+}: RegisterFormProps) {
 	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -77,8 +83,8 @@ export function RegisterForm({ registrationOpen = true, isFirstUser = false }: R
 		}
 	}
 
-	// 회원가입이 닫혀있으면
-	if (!registrationOpen && !isFirstUser) {
+	// 일반 회원가입이 닫혀있고 구글도 닫혀있으면
+	if (!registrationOpen && !isFirstUser && !googleRegistrationOpen) {
 		return (
 			<Card className="w-full max-w-md">
 				<CardHeader className="space-y-1">
@@ -93,6 +99,32 @@ export function RegisterForm({ registrationOpen = true, isFirstUser = false }: R
 							로그인 페이지로 이동
 						</Button>
 					</Link>
+				</CardFooter>
+			</Card>
+		);
+	}
+
+	// 일반 회원가입은 닫혀있지만 구글 OAuth는 열려있는 경우
+	if (!registrationOpen && !isFirstUser && googleRegistrationOpen) {
+		return (
+			<Card className="w-full max-w-md">
+				<CardHeader className="space-y-1">
+					<CardTitle className="text-2xl font-bold text-center">회원가입</CardTitle>
+					<CardDescription className="text-center">Google 계정으로 가입하세요</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					{error && (
+						<div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">{error}</div>
+					)}
+					<GoogleSignInButton className="w-full" />
+				</CardContent>
+				<CardFooter>
+					<p className="text-sm text-muted-foreground text-center w-full">
+						이미 계정이 있으신가요?{" "}
+						<Link href="/login" className="text-primary hover:underline">
+							로그인
+						</Link>
+					</p>
 				</CardFooter>
 			</Card>
 		);
@@ -190,6 +222,19 @@ export function RegisterForm({ registrationOpen = true, isFirstUser = false }: R
 						{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 						{isFirstUser ? "관리자로 가입" : "회원가입"}
 					</Button>
+					{googleRegistrationOpen && (
+						<>
+							<div className="relative">
+								<div className="absolute inset-0 flex items-center">
+									<span className="w-full border-t" />
+								</div>
+								<div className="relative flex justify-center text-xs uppercase">
+									<span className="bg-background px-2 text-muted-foreground">또는</span>
+								</div>
+							</div>
+							<GoogleSignInButton className="w-full" disabled={isLoading} />
+						</>
+					)}
 					<p className="text-sm text-muted-foreground text-center">
 						이미 계정이 있으신가요?{" "}
 						<Link href="/login" className="text-primary hover:underline">

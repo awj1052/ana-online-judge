@@ -52,7 +52,7 @@ export function AddParticipantDialog({ contestId }: AddParticipantDialogProps) {
 		}
 	};
 
-	const handleAddParticipant = async (userId: number, username: string) => {
+	const handleAddParticipant = async (userId: number, _username: string) => {
 		startAdding(async () => {
 			setError(null);
 			try {

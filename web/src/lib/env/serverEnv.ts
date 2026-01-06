@@ -31,6 +31,10 @@ const serverEnvSchema = z.object({
 	NEXTAUTH_SECRET: z.string().optional(),
 	NEXTAUTH_URL: z.string().url().optional(),
 
+	// Google OAuth
+	GOOGLE_CLIENT_ID: z.string().optional(),
+	GOOGLE_CLIENT_SECRET: z.string().optional(),
+
 	// Application
 	NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });

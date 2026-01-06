@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { RegisterForm } from "@/components/auth/register-form";
-import { isFirstUser, isRegistrationOpen } from "@/lib/auth-utils";
+import { isFirstUser, isGoogleRegistrationOpen, isRegistrationOpen } from "@/lib/auth-utils";
 
 export const metadata: Metadata = {
 	title: "회원가입",
@@ -16,11 +16,19 @@ export default async function RegisterPage() {
 		redirect("/");
 	}
 
-	const [registrationOpen, firstUser] = await Promise.all([isRegistrationOpen(), isFirstUser()]);
+	const [registrationOpen, firstUser, googleRegistrationOpen] = await Promise.all([
+		isRegistrationOpen(),
+		isFirstUser(),
+		isGoogleRegistrationOpen(),
+	]);
 
 	return (
 		<div className="flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-12">
-			<RegisterForm registrationOpen={registrationOpen} isFirstUser={firstUser} />
+			<RegisterForm
+				registrationOpen={registrationOpen}
+				isFirstUser={firstUser}
+				googleRegistrationOpen={googleRegistrationOpen}
+			/>
 		</div>
 	);
 }

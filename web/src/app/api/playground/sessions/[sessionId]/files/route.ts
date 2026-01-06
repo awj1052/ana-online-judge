@@ -3,7 +3,7 @@ import { getPlaygroundSession, requirePlaygroundAccess } from "@/actions/playgro
 import { auth } from "@/auth";
 
 export async function GET(
-	request: NextRequest,
+	_request: NextRequest,
 	{ params }: { params: Promise<{ sessionId: string }> }
 ) {
 	const session = await auth();

@@ -55,7 +55,7 @@ function parseTestcaseFiles(files: File[]): TestcasePair[] {
 				// Extract index: for patterns like "input_1", index is in match[2]
 				// for others like "1_input", "1.in", "test1_input", index is in match[1]
 				const index = parseInt(match[2] && /^\d+$/.test(match[2]) ? match[2] : match[1], 10);
-				if (!isNaN(index)) {
+				if (!Number.isNaN(index)) {
 					inputFiles.push({ file, index });
 					matched = true;
 					break;
@@ -72,7 +72,7 @@ function parseTestcaseFiles(files: File[]): TestcasePair[] {
 					// Extract index: for patterns like "output_1", index is in match[2]
 					// for others like "1_output", "1.out", "test1_output", index is in match[1]
 					const index = parseInt(match[2] && /^\d+$/.test(match[2]) ? match[2] : match[1], 10);
-					if (!isNaN(index)) {
+					if (!Number.isNaN(index)) {
 						outputFiles.push({ file, index });
 						matched = true;
 						break;
